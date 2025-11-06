@@ -113,10 +113,7 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # ✅ CORRECTION: CORS Configuration complète
-CORS_ALLOWED_ORIGINS = config(
-    'CORS_ALLOWED_ORIGINS',
-    default='http://localhost:3000,http://127.0.0.1:3000'
-).split(',')
+CORS_ALLOWED_ORIGINS = ["https://erp-micheldevelo-frontend.onrender.com"]
 
 CORS_ALLOW_CREDENTIALS = True
 
