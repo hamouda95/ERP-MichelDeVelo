@@ -527,25 +527,25 @@ class Invoice(models.Model):
 
     def send_invoice_email(self):
     """Envoie la facture PDF au client automatiquement."""
-    client_email = self.order.client.email
-    if not client_email:
-        return False
-
-    subject = f"Votre facture {self.invoice_number} - Michel de Vélo"
-    message = (
-        f"Bonjour {self.order.client.full_name or self.order.client.first_name},\n\n"
-        f"Merci pour votre achat chez Michel de Vélo.\n"
-        f"Veuillez trouver ci-joint votre facture N° {self.invoice_number}.\n\n"
-        "À bientôt !\n\n"
-        "L’équipe Michel de Vélo"
-    )
-
-    email = EmailMessage(subject, message, "micheldevelo@gmail.com", [client_email])
-
-    if self.invoice_pdf:
-        email.attach_file(self.invoice_pdf.path)
-    if self.receipt_pdf:
-        email.attach_file(self.receipt_pdf.path)
-
-    email.send(fail_silently=False)
-    return True
+        client_email = self.order.client.email
+        if not client_email:
+            return False
+    
+        subject = f"Votre facture {self.invoice_number} - Michel de Vélo"
+        message = (
+            f"Bonjour {self.order.client.full_name or self.order.client.first_name},\n\n"
+            f"Merci pour votre achat chez Michel de Vélo.\n"
+            f"Veuillez trouver ci-joint votre facture N° {self.invoice_number}.\n\n"
+            "À bientôt !\n\n"
+            "L’équipe Michel de Vélo"
+        )
+    
+        email = EmailMessage(subject, message, "micheldevelo@gmail.com", [client_email])
+    
+        if self.invoice_pdf:
+            email.attach_file(self.invoice_pdf.path)
+        if self.receipt_pdf:
+            email.attach_file(self.receipt_pdf.path)
+    
+        email.send(fail_silently=False)
+        return True
