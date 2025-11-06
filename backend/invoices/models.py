@@ -548,6 +548,6 @@ class Invoice(models.Model):
         self.generate_receipt()  # Ticket de caisse
         self.generate_invoice()  # Facture complète
         self.save()
-        self.send_invoice_email() #Envoie la facture par mail
+        #self.send_invoice_email() #Envoie la facture par mail
 
    
