@@ -518,15 +518,8 @@ class Invoice(models.Model):
         self.invoice_pdf.save(filename, ContentFile(buffer.read()), save=True)
         
         return buffer
-    
-    def generate_both(self):
-        """Génère à la fois le ticket ET la facture"""
-        self.generate_receipt()  # Ticket de caisse
-        self.generate_invoice()  # Facture complète
-        self.save()
-
     def send_invoice_email(self):
-    """Envoie la facture PDF au client automatiquement."""
+        """Envoie la facture PDF au client automatiquement."""
         client_email = self.order.client.email
         if not client_email:
             return False
@@ -549,3 +542,12 @@ class Invoice(models.Model):
     
         email.send(fail_silently=False)
         return True
+
+    def generate_both(self):
+        """Génère à la fois le ticket ET la facture"""
+        self.generate_receipt()  # Ticket de caisse
+        self.generate_invoice()  # Facture complète
+        self.save()
+        self.send_invoice_email() #Envoie la facture par mail
+
+   
