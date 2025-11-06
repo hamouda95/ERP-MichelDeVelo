@@ -9,6 +9,7 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_RIGHT, TA_LEFT
 from io import BytesIO
 from reportlab.platypus import Image, Table, TableStyle
+from django.core.mail import EmailMessage
 
 class Invoice(models.Model):
     invoice_number = models.CharField(max_length=30, unique=True, editable=False)
@@ -523,3 +524,28 @@ class Invoice(models.Model):
         self.generate_receipt()  # Ticket de caisse
         self.generate_invoice()  # Facture complète
         self.save()
+
+    def send_invoice_email(self):
+    """Envoie la facture PDF au client automatiquement."""
+    client_email = self.order.client.email
+    if not client_email:
+        return False
+
+    subject = f"Votre facture {self.invoice_number} - Michel de Vélo"
+    message = (
+        f"Bonjour {self.order.client.full_name or self.order.client.first_name},\n\n"
+        f"Merci pour votre achat chez Michel de Vélo.\n"
+        f"Veuillez trouver ci-joint votre facture N° {self.invoice_number}.\n\n"
+        "À bientôt !\n\n"
+        "L’équipe Michel de Vélo"
+    )
+
+    email = EmailMessage(subject, message, "micheldevelo@gmail.com", [client_email])
+
+    if self.invoice_pdf:
+        email.attach_file(self.invoice_pdf.path)
+    if self.receipt_pdf:
+        email.attach_file(self.receipt_pdf.path)
+
+    email.send(fail_silently=False)
+    return True
