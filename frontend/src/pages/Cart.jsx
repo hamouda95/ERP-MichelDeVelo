@@ -174,7 +174,7 @@ export default function Cart() {
   }, [products, barcodeInput]);
 
   // --- Validation / Checkout ---
-  const handleCheckout = useCallback(async () => {
+  /*const handleCheckout = useCallback(async () => {
     if (!selectedClient) {
       toast.error('Veuillez sélectionner un client');
       return;
@@ -256,7 +256,100 @@ export default function Cart() {
     } finally {
       setLoading(false);
     }
+  }, [selectedClient, selectedStore, items, paymentMethod, installments, clearCart]);*/
+
+  const handleCheckout = useCallback(async () => {
+    if (!selectedClient) {
+      toast.error('Veuillez sélectionner un client');
+      return;
+    }
+    if (items.length === 0) {
+      toast.error('Le panier est vide');
+      return;
+    }
+    setLoading(true);
+    try {
+      const orderData = {
+        client: selectedClient.id,
+        store: selectedStore,
+        items: items.map(item => ({
+          product: item.product.id,
+          quantity: item.quantity,
+          unit_price_ht: parseFloat(item.product.price_ht),
+          unit_price_ttc: parseFloat(item.product.price_ttc),
+          tva_rate: parseFloat(item.product.tva_rate),
+        })),
+        payment_method: paymentMethod,
+        installments: paymentMethod === 'installment' ? installments : 1,
+      };
+  
+      const respOrder = await ordersAPI.create(orderData);
+      const order = respOrder.data;
+      toast.success('✅ Vente enregistrée avec succès !');
+  
+      const authStorage = localStorage.getItem('auth-storage');
+      const token = authStorage ? JSON.parse(authStorage)?.state?.token : null;
+      if (!token) {
+        toast.error('Session expirée, veuillez vous reconnecter');
+        setLoading(false);
+        return;
+      }
+  
+      const axiosAuth = axios.create({
+        baseURL: 'https://erp-micheldevelo.onrender.com/',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      });
+  
+      // Génération des fichiers + envoi automatique du mail côté backend
+      await axiosAuth.post(`/api/invoices/${order.invoice.id}/generate_both/`);
+      toast.success('📧 Facture envoyée automatiquement au client !', { duration: 4000 });
+  
+      // Téléchargement local des PDFs si ce n'est pas un Android
+      const isAndroid = /Android/i.test(navigator.userAgent);
+      if (!isAndroid) {
+        // Télécharger le ticket
+        const receiptResp = await axiosAuth.get(
+          `/api/invoices/${order.invoice.id}/download_receipt/`,
+          { responseType: 'blob' }
+        );
+        const receiptUrl = window.URL.createObjectURL(new Blob([receiptResp.data]));
+        const a = document.createElement('a');
+        a.href = receiptUrl;
+        a.setAttribute('download', `ticket_${order.invoice.invoice_number}.pdf`);
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+  
+        // Télécharger la facture
+        const invoiceResp = await axiosAuth.get(
+          `/api/invoices/${order.invoice.id}/download_invoice/`,
+          { responseType: 'blob' }
+        );
+        const invoiceUrl = window.URL.createObjectURL(new Blob([invoiceResp.data]));
+        const b = document.createElement('a');
+        b.href = invoiceUrl;
+        b.setAttribute('download', `facture_${order.invoice.invoice_number}.pdf`);
+        document.body.appendChild(b);
+        b.click();
+        b.remove();
+      } else {
+        console.log("Téléchargement local désactivé sur Android");
+      }
+  
+      // Réinitialisation du panier et autres états
+      clearCart();
+      setBarcodeInput('');
+      setPaymentMethod('cash');
+      setInstallments(1);
+      setTimeout(() => barcodeInputRef.current?.focus(), 500);
+    } catch (error) {
+      console.error('Erreur checkout:', error);
+      toast.error('Erreur lors de la création de la commande');
+    } finally {
+      setLoading(false);
+    }
   }, [selectedClient, selectedStore, items, paymentMethod, installments, clearCart]);
+
 
 
   const totalTTC = getTotal();
