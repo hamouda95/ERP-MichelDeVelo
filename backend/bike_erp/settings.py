@@ -6,15 +6,14 @@ import dj_database_url
 BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = config('SECRET_KEY', default='django-insecure-change-this-in-production')
 DEBUG = config('DEBUG', default=False, cast=bool)
+
 ### RENDER - Claude
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1,.onrender.com').split(',')
+
 # HTTPS
 SECURE_SSL_REDIRECT = not DEBUG
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
-#ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,192.168.1.117').split(',')
-#ALLOWED_HOSTS = ['localhost','192.168.1.117']
-#127.0.0.1
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -71,7 +70,7 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'bike_erp.wsgi.application'
 
-# Supabase PostgreSQL Database
+# ✅ CORRECTION: Supabase PostgreSQL Database avec options IPv4
 DATABASES = {
     'default': dj_database_url.config(
         default=config('DATABASE_URL'),
@@ -79,6 +78,18 @@ DATABASES = {
         conn_health_checks=True,
     )
 }
+
+# ✅ AJOUT: Forcer les options de connexion pour éviter IPv6
+if 'OPTIONS' not in DATABASES['default']:
+    DATABASES['default']['OPTIONS'] = {}
+
+DATABASES['default']['OPTIONS'].update({
+    'connect_timeout': 10,
+    'keepalives': 1,
+    'keepalives_idle': 30,
+    'keepalives_interval': 10,
+    'keepalives_count': 5,
+})
 
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
@@ -101,15 +112,35 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# CORS Configuration
-#CORS_ALLOWED_ORIGINS = config('CORS_ALLOWED_ORIGINS', default='http://localhost:3000').split(',')
+# ✅ CORRECTION: CORS Configuration complète
 CORS_ALLOWED_ORIGINS = config(
     'CORS_ALLOWED_ORIGINS',
     default='http://localhost:3000,http://127.0.0.1:3000'
 ).split(',')
+
 CORS_ALLOW_CREDENTIALS = True
-CORS_ALLOW_HEADERS = ['accept', 'authorization', 'content-type', 'origin']
-CORS_ALLOW_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
+
+# ✅ AJOUT: Headers CORS complets
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+]
+
+CORS_ALLOW_METHODS = [
+    'DELETE',
+    'GET',
+    'OPTIONS',
+    'PATCH',
+    'POST',
+    'PUT',
+]
 
 # REST Framework Configuration
 REST_FRAMEWORK = {
