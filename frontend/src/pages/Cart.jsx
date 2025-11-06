@@ -198,10 +198,11 @@ export default function Cart() {
         payment_method: paymentMethod,
         installments: paymentMethod === 'installment' ? installments : 1,
       };
+  
       const respOrder = await ordersAPI.create(orderData);
       const order = respOrder.data;
       toast.success('✅ Vente enregistrée avec succès !');
-
+  
       const authStorage = localStorage.getItem('auth-storage');
       const token = authStorage ? JSON.parse(authStorage)?.state?.token : null;
       if (!token) {
@@ -209,14 +210,17 @@ export default function Cart() {
         setLoading(false);
         return;
       }
-
+  
       const axiosAuth = axios.create({
         baseURL: 'https://erp-micheldevelo.onrender.com/',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       });
-
+  
+      // Génération des fichiers + envoi automatique du mail côté backend
       await axiosAuth.post(`/api/invoices/${order.invoice.id}/generate_both/`);
-
+      toast.success('📧 Facture envoyée automatiquement au client !', { duration: 4000 });
+  
+      // Téléchargement local des PDFs
       const receiptResp = await axiosAuth.get(
         `/api/invoices/${order.invoice.id}/download_receipt/`,
         { responseType: 'blob' }
@@ -228,7 +232,7 @@ export default function Cart() {
       document.body.appendChild(a);
       a.click();
       a.remove();
-
+  
       const invoiceResp = await axiosAuth.get(
         `/api/invoices/${order.invoice.id}/download_invoice/`,
         { responseType: 'blob' }
@@ -240,7 +244,7 @@ export default function Cart() {
       document.body.appendChild(b);
       b.click();
       b.remove();
-
+  
       clearCart();
       setBarcodeInput('');
       setPaymentMethod('cash');
@@ -253,6 +257,7 @@ export default function Cart() {
       setLoading(false);
     }
   }, [selectedClient, selectedStore, items, paymentMethod, installments, clearCart]);
+
 
   const totalTTC = getTotal();
   const totalHT = getTotalHT();
