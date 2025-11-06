@@ -211,7 +211,7 @@ export default function Cart() {
       }
 
       const axiosAuth = axios.create({
-        baseURL: 'http://localhost:8000',
+        baseURL: 'https://erp-micheldevelo.onrender.com/',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       });
 
