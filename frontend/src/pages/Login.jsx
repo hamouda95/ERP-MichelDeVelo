@@ -23,7 +23,8 @@ export default function Login() {
       const { access } = response.data;
       
       // 2. Récupérer les infos de l'utilisateur avec le token
-      const userResponse = await axios.get('http://localhost:8000/api/auth/me/', {
+      //const userResponse = await axios.get('http://localhost:8000/api/auth/me/', {
+      const userResponse = await axios.get(' https://erp-micheldevelo.onrender.com/api/auth/me/', {
         headers: {
           Authorization: `Bearer ${access}`
         }
