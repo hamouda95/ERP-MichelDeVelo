@@ -6,8 +6,14 @@ import dj_database_url
 BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = config('SECRET_KEY', default='django-insecure-change-this-in-production')
 DEBUG = config('DEBUG', default=False, cast=bool)
+### RENDER - Claude
+ALLOWED_HOSTS = [*]
+# HTTPS
+SECURE_SSL_REDIRECT = not DEBUG
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
 #ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,192.168.1.117').split(',')
-ALLOWED_HOSTS = ['localhost','192.168.1.117']
+#ALLOWED_HOSTS = ['localhost','192.168.1.117']
 #127.0.0.1
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -96,7 +102,8 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # CORS Configuration
-CORS_ALLOWED_ORIGINS = config('CORS_ALLOWED_ORIGINS', default='http://localhost:3000').split(',')
+#CORS_ALLOWED_ORIGINS = config('CORS_ALLOWED_ORIGINS', default='http://localhost:3000').split(',')
+CORS_ALLOWED_ORIGINS = https://erp-micheldevelo-frontend.onrender.com
 CORS_ALLOW_CREDENTIALS = True
 
 # REST Framework Configuration
