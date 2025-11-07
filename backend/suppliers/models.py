@@ -97,6 +97,9 @@ class PurchaseOrder(models.Model):
     total_tva = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     total_ttc = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     
+    # Frais de port (ajouté pour correspondre au frontend)
+    shipping_cost = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="Frais de port")
+    
     # Notes
     notes = models.TextField(blank=True)
     
