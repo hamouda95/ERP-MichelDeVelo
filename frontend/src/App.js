@@ -12,6 +12,12 @@ import Dashboard from './pages/Dashboard';
 import Products from './pages/Products';
 import Clients from './pages/Clients';
 import Cart from './pages/Cart';
+import Repairs from './pages/Repairs';      // ✅ Nouveau
+import Quotes from './pages/Quotes';        // ✅ Nouveau
+import Suppliers from './pages/Suppliers';  // ✅ Nouveau
+import Appointments from './pages/Appointments';
+import Purchases from './pages/Purchases';
+import Finance from './pages/Finance';
 import Layout from './components/Layout';
 
 // Protection des routes
@@ -43,6 +49,12 @@ function App() {
                     <Route path="/products" element={<Products />} />
                     <Route path="/clients" element={<Clients />} />
                     <Route path="/cart" element={<Cart />} />
+                    <Route path="/repairs" element={<Repairs />} />      {/* ✅ Nouveau */}
+                    <Route path="/quotes" element={<Quotes />} />        {/* ✅ Nouveau */}
+                    <Route path="/suppliers" element={<Suppliers />} />  {/* ✅ Nouveau */}
+                    <Route path="/appointments" element={<Appointments />} />
+                    <Route path="/purchases" element={<Purchases />} />
+                    <Route path="/finance" element={<Finance />} />
                   </Routes>
                 </Layout>
               </PrivateRoute>
