@@ -18,6 +18,9 @@ urlpatterns = [
     path('api/orders/', include('orders.urls')),
     path('api/invoices/', include('invoices.urls')),
     path('api/analytics/', include('analytics.urls')),
+    path('api/repairs/', include('repairs.urls')),       # ✅ Nouveau
+    path('api/quotes/', include('quotes.urls')),         # ✅ Nouveau
+    path('api/suppliers/', include('suppliers.urls')),   # ✅ Nouveau
     
     # Social Auth
     path('api/social-auth/', include('social_django.urls', namespace='social')),
