@@ -9,6 +9,7 @@ import {
   DocumentTextIcon,
   ArchiveBoxIcon
 } from '@heroicons/react/24/outline';
+import api from '../services/api';
 
 export default function Purchases() {
   const [purchases, setPurchases] = useState([]);
@@ -23,21 +24,21 @@ export default function Purchases() {
   
   // Formulaire nouvelle commande
   const [newPurchase, setNewPurchase] = useState({
-    supplier_id: '',
-    reference: '',
-    order_date: new Date().toISOString().split('T')[0],
-    expected_date: '',
+    supplier: '',
+    store: 'ville_avray',
+    expected_delivery_date: '',
     notes: '',
     items: []
   });
 
   // Item en cours d'ajout
   const [currentItem, setCurrentItem] = useState({
-    product_id: '',
-    quantity: 1,
+    product: '',
+    product_reference: '',
+    product_name: '',
+    quantity_ordered: 1,
     unit_price_ht: 0,
-    tva_rate: 20,
-    is_used: false
+    tva_rate: 20
   });
 
   // Charger les données
@@ -50,56 +51,9 @@ export default function Purchases() {
   const loadPurchases = async () => {
     setLoading(true);
     try {
-      // Données de démonstration
-      const demoData = [
-        {
-          id: 1,
-          reference: 'AC-2024-001',
-          supplier: 'Shimano Europe',
-          order_date: '2024-11-01',
-          expected_date: '2024-11-15',
-          reception_date: '2024-11-14',
-          status: 'received',
-          total_ht: 1250.00,
-          total_tva: 250.00,
-          total_ttc: 1500.00,
-          items: [
-            { product: 'Dérailleur XT', quantity: 5, unit_price_ht: 150, tva_rate: 20, is_used: false },
-            { product: 'Cassette 11V', quantity: 10, unit_price_ht: 50, tva_rate: 20, is_used: false }
-          ]
-        },
-        {
-          id: 2,
-          reference: 'AC-2024-002',
-          supplier: 'Mavic Distribution',
-          order_date: '2024-11-05',
-          expected_date: '2024-11-20',
-          reception_date: null,
-          status: 'in_transit',
-          total_ht: 2400.00,
-          total_tva: 480.00,
-          total_ttc: 2880.00,
-          items: [
-            { product: 'Roues Crossmax', quantity: 6, unit_price_ht: 400, tva_rate: 20, is_used: false }
-          ]
-        },
-        {
-          id: 3,
-          reference: 'AC-2024-003',
-          supplier: 'Vélos Occasion Pro',
-          order_date: '2024-11-06',
-          expected_date: '2024-11-13',
-          reception_date: null,
-          status: 'pending',
-          total_ht: 800.00,
-          total_tva: 0.00,
-          total_ttc: 800.00,
-          items: [
-            { product: 'VTT Giant Occasion', quantity: 2, unit_price_ht: 400, tva_rate: 0, is_used: true }
-          ]
-        }
-      ];
-      setPurchases(demoData);
+      const response = await api.get('/suppliers/purchase-orders/');
+      const data = response.data;
+      setPurchases(Array.isArray(data) ? data : data.results || []);
     } catch (error) {
       console.error('Erreur:', error);
     }
@@ -107,34 +61,29 @@ export default function Purchases() {
   };
 
   const loadSuppliers = async () => {
-    // Données démo fournisseurs
-    const demoSuppliers = [
-      { id: 1, name: 'Shimano Europe', email: 'order@shimano.eu' },
-      { id: 2, name: 'Mavic Distribution', email: 'commande@mavic.fr' },
-      { id: 3, name: 'Vélos Occasion Pro', email: 'achat@velosoccasion.fr' },
-      { id: 4, name: 'Continental France', email: 'orders@continental.fr' },
-      { id: 5, name: 'Specialized Distribution', email: 'b2b@specialized.com' }
-    ];
-    setSuppliers(demoSuppliers);
+    try {
+      const response = await api.get('/suppliers/suppliers/');
+      const data = response.data;
+      setSuppliers(Array.isArray(data) ? data : data.results || []);
+    } catch (error) {
+      console.error('Erreur:', error);
+    }
   };
 
   const loadProducts = async () => {
-    // Données démo produits
-    const demoProducts = [
-      { id: 1, name: 'Dérailleur XT', price: 150 },
-      { id: 2, name: 'Cassette 11V', price: 50 },
-      { id: 3, name: 'Roues Crossmax', price: 400 },
-      { id: 4, name: 'VTT Giant Occasion', price: 400 },
-      { id: 5, name: 'Pneu Continental', price: 35 },
-      { id: 6, name: 'Cadre Specialized', price: 800 }
-    ];
-    setProducts(demoProducts);
+    try {
+      const response = await api.get('/products/');
+      const data = response.data;
+      setProducts(Array.isArray(data) ? data : data.results || []);
+    } catch (error) {
+      console.error('Erreur:', error);
+    }
   };
 
   // Calculs automatiques
   const calculateItemTotal = (item) => {
-    const ht = item.quantity * item.unit_price_ht;
-    const tva = item.is_used ? 0 : ht * (item.tva_rate / 100);
+    const ht = item.quantity_ordered * item.unit_price_ht;
+    const tva = ht * (item.tva_rate / 100);
     const ttc = ht + tva;
     return { ht, tva, ttc };
   };
@@ -158,16 +107,19 @@ export default function Purchases() {
 
   // Ajouter un article à la commande
   const addItemToPurchase = () => {
-    if (!currentItem.product_id || currentItem.quantity <= 0) {
+    if (!currentItem.product || currentItem.quantity_ordered <= 0) {
       alert('Veuillez sélectionner un produit et une quantité valide');
       return;
     }
 
-    const product = products.find(p => p.id === parseInt(currentItem.product_id));
+    const product = products.find(p => p.id === parseInt(currentItem.product));
     const newItem = {
-      ...currentItem,
+      product: parseInt(currentItem.product),
+      product_reference: product.reference,
       product_name: product.name,
-      product_id: parseInt(currentItem.product_id)
+      quantity_ordered: currentItem.quantity_ordered,
+      unit_price_ht: parseFloat(currentItem.unit_price_ht),
+      tva_rate: parseFloat(currentItem.tva_rate)
     };
 
     setNewPurchase({
@@ -177,11 +129,12 @@ export default function Purchases() {
 
     // Réinitialiser le formulaire d'article
     setCurrentItem({
-      product_id: '',
-      quantity: 1,
+      product: '',
+      product_reference: '',
+      product_name: '',
+      quantity_ordered: 1,
       unit_price_ht: 0,
-      tva_rate: 20,
-      is_used: false
+      tva_rate: 20
     });
   };
 
@@ -193,66 +146,53 @@ export default function Purchases() {
 
   // Créer la commande
   const createPurchase = async () => {
-    if (!newPurchase.supplier_id || newPurchase.items.length === 0) {
+    if (!newPurchase.supplier || newPurchase.items.length === 0) {
       alert('Veuillez sélectionner un fournisseur et ajouter au moins un article');
       return;
     }
 
-    const totals = calculatePurchaseTotal(newPurchase.items);
-    const supplier = suppliers.find(s => s.id === parseInt(newPurchase.supplier_id));
-    
-    const purchaseData = {
-      id: purchases.length + 1,
-      reference: `AC-${new Date().getFullYear()}-${String(purchases.length + 1).padStart(3, '0')}`,
-      supplier: supplier.name,
-      order_date: newPurchase.order_date,
-      expected_date: newPurchase.expected_date,
-      reception_date: null,
-      status: 'pending',
-      ...totals,
-      items: newPurchase.items.map(item => {
-        const product = products.find(p => p.id === item.product_id);
-        return {
-          product: product.name,
-          quantity: item.quantity,
-          unit_price_ht: item.unit_price_ht,
-          tva_rate: item.tva_rate,
-          is_used: item.is_used
-        };
-      }),
-      notes: newPurchase.notes
-    };
-
-    setPurchases([purchaseData, ...purchases]);
-    setShowNewPurchaseModal(false);
-    resetNewPurchaseForm();
+    try {
+      await api.post('/suppliers/purchase-orders/', newPurchase);
+      alert('Commande créée avec succès !');
+      loadPurchases();
+      setShowNewPurchaseModal(false);
+      resetNewPurchaseForm();
+    } catch (error) {
+      console.error('Erreur:', error);
+      alert('Erreur lors de la création de la commande');
+    }
   };
 
   const resetNewPurchaseForm = () => {
     setNewPurchase({
-      supplier_id: '',
-      reference: '',
-      order_date: new Date().toISOString().split('T')[0],
-      expected_date: '',
+      supplier: '',
+      store: 'ville_avray',
+      expected_delivery_date: '',
       notes: '',
       items: []
     });
   };
 
   // Marquer comme reçu
-  const markAsReceived = (purchaseId) => {
-    setPurchases(purchases.map(p => 
-      p.id === purchaseId 
-        ? { ...p, status: 'received', reception_date: new Date().toISOString().split('T')[0] }
-        : p
-    ));
-    alert('Commande marquée comme reçue ! Le stock a été mis à jour.');
+  const markAsReceived = async (purchaseId) => {
+    if (window.confirm('Confirmer la réception de cette commande ? Le stock sera mis à jour.')) {
+      try {
+        await api.post(`/suppliers/purchase-orders/${purchaseId}/receive_items/`, {
+          items: [] // Le backend gère la réception complète
+        });
+        alert('Commande marquée comme reçue ! Le stock a été mis à jour.');
+        loadPurchases();
+      } catch (error) {
+        console.error('Erreur:', error);
+        alert('Erreur lors de la réception');
+      }
+    }
   };
 
   // Filtrer les commandes
   const filteredPurchases = purchases.filter(p => {
-    const matchSearch = p.reference.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                       p.supplier.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchSearch = p.purchase_order_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                       p.supplier?.name?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchStatus = filterStatus === 'all' || p.status === filterStatus;
     return matchSearch && matchStatus;
   });
@@ -260,12 +200,14 @@ export default function Purchases() {
   // Badges de statut
   const getStatusBadge = (status) => {
     const badges = {
-      pending: { class: 'bg-yellow-100 text-yellow-800 border-yellow-300', label: 'En attente', icon: '⏳' },
-      in_transit: { class: 'bg-blue-100 text-blue-800 border-blue-300', label: 'En transit', icon: '🚚' },
+      draft: { class: 'bg-gray-100 text-gray-800 border-gray-300', label: 'Brouillon', icon: '📝' },
+      sent: { class: 'bg-blue-100 text-blue-800 border-blue-300', label: 'Envoyé', icon: '📤' },
+      confirmed: { class: 'bg-indigo-100 text-indigo-800 border-indigo-300', label: 'Confirmé', icon: '✔️' },
+      partial: { class: 'bg-yellow-100 text-yellow-800 border-yellow-300', label: 'Partiel', icon: '⏳' },
       received: { class: 'bg-green-100 text-green-800 border-green-300', label: 'Reçu', icon: '✅' },
       cancelled: { class: 'bg-red-100 text-red-800 border-red-300', label: 'Annulé', icon: '❌' }
     };
-    return badges[status] || badges.pending;
+    return badges[status] || badges.draft;
   };
 
   const totals = newPurchase.items.length > 0 ? calculatePurchaseTotal(newPurchase.items) : null;
@@ -293,9 +235,9 @@ export default function Purchases() {
           <div className="bg-white p-5 rounded-2xl shadow-lg border-l-4 border-yellow-500 hover:shadow-xl transition-shadow">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-sm font-medium text-gray-600 mb-1">En attente</div>
+                <div className="text-sm font-medium text-gray-600 mb-1">Brouillon</div>
                 <div className="text-3xl font-bold text-yellow-600">
-                  {purchases.filter(p => p.status === 'pending').length}
+                  {purchases.filter(p => p.status === 'draft').length}
                 </div>
               </div>
               <div className="p-3 bg-yellow-100 rounded-xl">
@@ -307,9 +249,9 @@ export default function Purchases() {
           <div className="bg-white p-5 rounded-2xl shadow-lg border-l-4 border-blue-500 hover:shadow-xl transition-shadow">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-sm font-medium text-gray-600 mb-1">En transit</div>
+                <div className="text-sm font-medium text-gray-600 mb-1">En cours</div>
                 <div className="text-3xl font-bold text-blue-600">
-                  {purchases.filter(p => p.status === 'in_transit').length}
+                  {purchases.filter(p => ['sent', 'confirmed'].includes(p.status)).length}
                 </div>
               </div>
               <div className="p-3 bg-blue-100 rounded-xl">
@@ -338,7 +280,7 @@ export default function Purchases() {
                 <div className="text-sm font-medium text-gray-600 mb-1">Montant total</div>
                 <div className="text-3xl font-bold text-purple-600">
                   {purchases.filter(p => p.status === 'received')
-                    .reduce((sum, p) => sum + parseFloat(p.total_ttc), 0)
+                    .reduce((sum, p) => sum + parseFloat(p.total_ttc || 0), 0)
                     .toFixed(2)}€
                 </div>
               </div>
@@ -372,8 +314,10 @@ export default function Purchases() {
                 className="px-4 py-2 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none font-medium"
               >
                 <option value="all">Tous les statuts</option>
-                <option value="pending">En attente</option>
-                <option value="in_transit">En transit</option>
+                <option value="draft">Brouillon</option>
+                <option value="sent">Envoyé</option>
+                <option value="confirmed">Confirmé</option>
+                <option value="partial">Partiel</option>
                 <option value="received">Reçues</option>
                 <option value="cancelled">Annulées</option>
               </select>
@@ -411,10 +355,10 @@ export default function Purchases() {
                 return (
                   <tr key={purchase.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-6 py-4">
-                      <div className="font-bold text-gray-900">{purchase.reference}</div>
+                      <div className="font-bold text-gray-900">{purchase.purchase_order_number}</div>
                     </td>
                     <td className="px-6 py-4">
-                      <div className="text-gray-700">{purchase.supplier}</div>
+                      <div className="text-gray-700">{purchase.supplier?.name || 'N/A'}</div>
                     </td>
                     <td className="px-6 py-4">
                       <div className="text-gray-600">
@@ -423,7 +367,9 @@ export default function Purchases() {
                     </td>
                     <td className="px-6 py-4">
                       <div className="text-gray-600">
-                        {new Date(purchase.expected_date).toLocaleDateString('fr-FR')}
+                        {purchase.expected_delivery_date 
+                          ? new Date(purchase.expected_delivery_date).toLocaleDateString('fr-FR')
+                          : '-'}
                       </div>
                     </td>
                     <td className="px-6 py-4">
@@ -433,13 +379,13 @@ export default function Purchases() {
                       </span>
                     </td>
                     <td className="px-6 py-4 text-right font-semibold text-gray-900">
-                      {parseFloat(purchase.total_ht).toFixed(2)}€
+                      {parseFloat(purchase.subtotal_ht || 0).toFixed(2)}€
                     </td>
                     <td className="px-6 py-4 text-right font-semibold text-gray-600">
-                      {parseFloat(purchase.total_tva).toFixed(2)}€
+                      {parseFloat(purchase.total_tva || 0).toFixed(2)}€
                     </td>
                     <td className="px-6 py-4 text-right font-bold text-green-600">
-                      {parseFloat(purchase.total_ttc).toFixed(2)}€
+                      {parseFloat(purchase.total_ttc || 0).toFixed(2)}€
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center justify-center gap-2">
@@ -456,7 +402,7 @@ export default function Purchases() {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                           </svg>
                         </button>
-                        {purchase.status !== 'received' && purchase.status !== 'cancelled' && (
+                        {!['received', 'cancelled'].includes(purchase.status) && (
                           <button
                             onClick={() => markAsReceived(purchase.id)}
                             className="p-2 text-green-600 hover:bg-green-100 rounded-lg transition-colors"
@@ -515,8 +461,8 @@ export default function Purchases() {
                 <div>
                   <label className="block text-sm font-bold text-gray-700 mb-2">Fournisseur *</label>
                   <select
-                    value={newPurchase.supplier_id}
-                    onChange={(e) => setNewPurchase({ ...newPurchase, supplier_id: e.target.value })}
+                    value={newPurchase.supplier}
+                    onChange={(e) => setNewPurchase({ ...newPurchase, supplier: e.target.value })}
                     className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none"
                     required
                   >
@@ -528,21 +474,24 @@ export default function Purchases() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-2">Date de commande</label>
-                  <input
-                    type="date"
-                    value={newPurchase.order_date}
-                    onChange={(e) => setNewPurchase({ ...newPurchase, order_date: e.target.value })}
+                  <label className="block text-sm font-bold text-gray-700 mb-2">Magasin *</label>
+                  <select
+                    value={newPurchase.store}
+                    onChange={(e) => setNewPurchase({ ...newPurchase, store: e.target.value })}
                     className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none"
-                  />
+                    required
+                  >
+                    <option value="ville_avray">Ville d'Avray</option>
+                    <option value="garches">Garches</option>
+                  </select>
                 </div>
 
                 <div>
                   <label className="block text-sm font-bold text-gray-700 mb-2">Date de livraison prévue</label>
                   <input
                     type="date"
-                    value={newPurchase.expected_date}
-                    onChange={(e) => setNewPurchase({ ...newPurchase, expected_date: e.target.value })}
+                    value={newPurchase.expected_delivery_date}
+                    onChange={(e) => setNewPurchase({ ...newPurchase, expected_delivery_date: e.target.value })}
                     className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none"
                   />
                 </div>
@@ -566,20 +515,20 @@ export default function Purchases() {
                   <div className="md:col-span-2">
                     <label className="block text-sm font-medium text-gray-700 mb-2">Produit *</label>
                     <select
-                      value={currentItem.product_id}
+                      value={currentItem.product}
                       onChange={(e) => {
                         const product = products.find(p => p.id === parseInt(e.target.value));
                         setCurrentItem({
                           ...currentItem,
-                          product_id: e.target.value,
-                          unit_price_ht: product ? product.price : 0
+                          product: e.target.value,
+                          unit_price_ht: product ? parseFloat(product.price_ht) : 0
                         });
                       }}
                       className="w-full px-4 py-2 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none"
                     >
                       <option value="">Choisir un produit</option>
                       {products.map(p => (
-                        <option key={p.id} value={p.id}>{p.name}</option>
+                        <option key={p.id} value={p.id}>{p.name} - {parseFloat(p.price_ht).toFixed(2)}€ HT</option>
                       ))}
                     </select>
                   </div>
@@ -589,8 +538,8 @@ export default function Purchases() {
                     <input
                       type="number"
                       min="1"
-                      value={currentItem.quantity}
-                      onChange={(e) => setCurrentItem({ ...currentItem, quantity: parseInt(e.target.value) || 1 })}
+                      value={currentItem.quantity_ordered}
+                      onChange={(e) => setCurrentItem({ ...currentItem, quantity_ordered: parseInt(e.target.value) || 1 })}
                       className="w-full px-4 py-2 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none"
                     />
                   </div>
@@ -613,35 +562,21 @@ export default function Purchases() {
                       step="0.1"
                       value={currentItem.tva_rate}
                       onChange={(e) => setCurrentItem({ ...currentItem, tva_rate: parseFloat(e.target.value) || 0 })}
-                      disabled={currentItem.is_used}
-                      className="w-full px-4 py-2 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none disabled:bg-gray-100"
+                      className="w-full px-4 py-2 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none"
                     />
                   </div>
 
                   <div className="flex items-end">
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={currentItem.is_used}
-                        onChange={(e) => setCurrentItem({ 
-                          ...currentItem, 
-                          is_used: e.target.checked,
-                          tva_rate: e.target.checked ? 0 : 20
-                        })}
-                        className="w-5 h-5 rounded border-2 border-gray-300 text-blue-600 focus:ring-blue-500"
-                      />
-                      <span className="text-sm font-medium text-gray-700">Occasion</span>
-                    </label>
+                    <button
+                      type="button"
+                      onClick={addItemToPurchase}
+                      className="w-full px-6 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-medium flex items-center justify-center gap-2"
+                    >
+                      <PlusIcon className="h-5 w-5" />
+                      Ajouter
+                    </button>
                   </div>
                 </div>
-
-                <button
-                  onClick={addItemToPurchase}
-                  className="px-6 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-medium flex items-center gap-2"
-                >
-                  <PlusIcon className="h-5 w-5" />
-                  Ajouter l'article
-                </button>
               </div>
 
               {/* Liste des articles ajoutés */}
@@ -668,9 +603,8 @@ export default function Purchases() {
                             <tr key={index} className="border-b border-gray-200">
                               <td className="px-4 py-3 text-gray-900 font-medium">
                                 {item.product_name}
-                                {item.is_used && <span className="ml-2 text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded-full font-bold">Occasion</span>}
                               </td>
-                              <td className="px-4 py-3 text-center text-gray-700">{item.quantity}</td>
+                              <td className="px-4 py-3 text-center text-gray-700">{item.quantity_ordered}</td>
                               <td className="px-4 py-3 text-right text-gray-700">{item.unit_price_ht.toFixed(2)}€</td>
                               <td className="px-4 py-3 text-center text-gray-700">{item.tva_rate}%</td>
                               <td className="px-4 py-3 text-right font-semibold text-gray-900">{itemTotal.ht.toFixed(2)}€</td>
@@ -725,7 +659,7 @@ export default function Purchases() {
                 </button>
                 <button
                   onClick={createPurchase}
-                  disabled={!newPurchase.supplier_id || newPurchase.items.length === 0}
+                  disabled={!newPurchase.supplier || newPurchase.items.length === 0}
                   className="px-6 py-3 bg-gradient-to-r from-green-600 to-blue-600 text-white rounded-xl hover:shadow-lg font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Créer la commande
@@ -747,8 +681,8 @@ export default function Purchases() {
                     <DocumentTextIcon className="h-7 w-7 text-white" />
                   </div>
                   <div>
-                    <h2 className="text-3xl font-bold text-gray-900">{selectedPurchase.reference}</h2>
-                    <p className="text-gray-500 mt-1">{selectedPurchase.supplier}</p>
+                    <h2 className="text-3xl font-bold text-gray-900">{selectedPurchase.purchase_order_number}</h2>
+                    <p className="text-gray-500 mt-1">{selectedPurchase.supplier?.name || 'N/A'}</p>
                   </div>
                 </div>
                 <button
@@ -781,59 +715,62 @@ export default function Purchases() {
                   <div className="bg-gray-50 rounded-2xl p-4">
                     <div className="text-sm text-gray-600 mb-1 font-medium">Livraison prévue</div>
                     <div className="text-lg font-bold text-gray-900">
-                      {new Date(selectedPurchase.expected_date).toLocaleDateString('fr-FR')}
+                      {selectedPurchase.expected_delivery_date 
+                        ? new Date(selectedPurchase.expected_delivery_date).toLocaleDateString('fr-FR')
+                        : '-'}
                     </div>
                   </div>
                 </div>
 
                 {/* Articles */}
-                <div className="border-t-2 border-gray-100 pt-6">
-                  <h3 className="text-lg font-bold text-gray-900 mb-4">Articles commandés</h3>
-                  <div className="bg-gray-50 rounded-2xl p-4">
-                    <table className="w-full">
-                      <thead>
-                        <tr className="border-b border-gray-200">
-                          <th className="px-4 py-2 text-left text-sm font-bold text-gray-700">Produit</th>
-                          <th className="px-4 py-2 text-center text-sm font-bold text-gray-700">Qté</th>
-                          <th className="px-4 py-2 text-right text-sm font-bold text-gray-700">Prix HT</th>
-                          <th className="px-4 py-2 text-center text-sm font-bold text-gray-700">TVA</th>
-                          <th className="px-4 py-2 text-right text-sm font-bold text-gray-700">Total</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {selectedPurchase.items.map((item, index) => (
-                          <tr key={index} className="border-b border-gray-200">
-                            <td className="px-4 py-3 text-gray-900 font-medium">
-                              {item.product}
-                              {item.is_used && <span className="ml-2 text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded-full font-bold">Occasion</span>}
-                            </td>
-                            <td className="px-4 py-3 text-center text-gray-700">{item.quantity}</td>
-                            <td className="px-4 py-3 text-right text-gray-700">{item.unit_price_ht.toFixed(2)}€</td>
-                            <td className="px-4 py-3 text-center text-gray-700">{item.tva_rate}%</td>
-                            <td className="px-4 py-3 text-right font-bold text-gray-900">
-                              {(item.quantity * item.unit_price_ht * (1 + item.tva_rate / 100)).toFixed(2)}€
-                            </td>
+                {selectedPurchase.items && selectedPurchase.items.length > 0 && (
+                  <div className="border-t-2 border-gray-100 pt-6">
+                    <h3 className="text-lg font-bold text-gray-900 mb-4">Articles commandés</h3>
+                    <div className="bg-gray-50 rounded-2xl p-4">
+                      <table className="w-full">
+                        <thead>
+                          <tr className="border-b border-gray-200">
+                            <th className="px-4 py-2 text-left text-sm font-bold text-gray-700">Produit</th>
+                            <th className="px-4 py-2 text-center text-sm font-bold text-gray-700">Qté</th>
+                            <th className="px-4 py-2 text-right text-sm font-bold text-gray-700">Prix HT</th>
+                            <th className="px-4 py-2 text-center text-sm font-bold text-gray-700">TVA</th>
+                            <th className="px-4 py-2 text-right text-sm font-bold text-gray-700">Total</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                        </thead>
+                        <tbody>
+                          {selectedPurchase.items.map((item, index) => (
+                            <tr key={index} className="border-b border-gray-200">
+                              <td className="px-4 py-3 text-gray-900 font-medium">
+                                {item.product_name}
+                              </td>
+                              <td className="px-4 py-3 text-center text-gray-700">{item.quantity_ordered}</td>
+                              <td className="px-4 py-3 text-right text-gray-700">{parseFloat(item.unit_price_ht).toFixed(2)}€</td>
+                              <td className="px-4 py-3 text-center text-gray-700">{item.tva_rate}%</td>
+                              <td className="px-4 py-3 text-right font-bold text-gray-900">
+                                {(item.quantity_ordered * item.unit_price_ht * (1 + item.tva_rate / 100)).toFixed(2)}€
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* Totaux */}
                 <div className="bg-gradient-to-br from-green-50 to-blue-50 rounded-2xl p-6 border-2 border-green-200">
                   <div className="space-y-2">
                     <div className="flex justify-between items-center">
                       <span className="text-gray-700 font-medium">Total HT:</span>
-                      <span className="text-xl font-bold text-gray-900">{parseFloat(selectedPurchase.total_ht).toFixed(2)}€</span>
+                      <span className="text-xl font-bold text-gray-900">{parseFloat(selectedPurchase.subtotal_ht || 0).toFixed(2)}€</span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-gray-700 font-medium">Total TVA:</span>
-                      <span className="text-xl font-bold text-gray-900">{parseFloat(selectedPurchase.total_tva).toFixed(2)}€</span>
+                      <span className="text-xl font-bold text-gray-900">{parseFloat(selectedPurchase.total_tva || 0).toFixed(2)}€</span>
                     </div>
                     <div className="flex justify-between items-center pt-3 border-t-2 border-green-300">
                       <span className="text-gray-900 font-bold text-lg">Total TTC:</span>
-                      <span className="text-3xl font-bold text-green-600">{parseFloat(selectedPurchase.total_ttc).toFixed(2)}€</span>
+                      <span className="text-3xl font-bold text-green-600">{parseFloat(selectedPurchase.total_ttc || 0).toFixed(2)}€</span>
                     </div>
                   </div>
                 </div>
@@ -846,7 +783,7 @@ export default function Purchases() {
                 >
                   Fermer
                 </button>
-                {selectedPurchase.status !== 'received' && selectedPurchase.status !== 'cancelled' && (
+                {!['received', 'cancelled'].includes(selectedPurchase.status) && (
                   <button
                     onClick={() => {
                       markAsReceived(selectedPurchase.id);
