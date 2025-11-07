@@ -31,6 +31,9 @@ INSTALLED_APPS = [
     'clients',
     'orders',
     'invoices',
+    'repairs',      # ✅ Vérifier que c'est présent
+    'quotes',       # ✅ Vérifier que c'est présent
+    'suppliers',    # ✅ Vérifier que c'est présent
 ]
 
 # Custom User Model
