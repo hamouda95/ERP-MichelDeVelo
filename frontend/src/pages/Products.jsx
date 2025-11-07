@@ -258,7 +258,7 @@ function ProductModal({ product, onClose, onSave }) {
     name: product?.name || '',
     description: product?.description || '',
     product_type: product?.product_type || 'bike',
-    price_ht: product?.price_ht || '',
+    price_ht: product?.price_ht || product?.price_ttc / (1 + product?.tva_rate )|| 0,
     price_ttc: product?.price_ttc || '',
     tva_rate: product?.tva_rate || 20,
     stock_ville_avray: product?.stock_ville_avray || 0,
@@ -269,6 +269,19 @@ function ProductModal({ product, onClose, onSave }) {
     size: product?.size || '',
     is_visible: product?.is_visible ?? true,
   });
+
+  // Synchronisation du prix HT et TTC basé sur le taux de TVA
+    useEffect(() => {
+      if (formData.price_ttc && formData.tva_rate) {
+        setFormData(prevState => ({
+          ...prevState,
+          price_ht: (formData.price_ttc / (1 + formData.tva_rate / 100)).toFixed(2),
+        }));
+      }
+    }, [formData.price_ttc, formData.tva_rate]);
+
+    // Gérer les changements dans le formulaire
+    
   const [loading, setLoading] = useState(false);
 
   const handleChange = (e) => {
