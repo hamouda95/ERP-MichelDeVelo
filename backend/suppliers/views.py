@@ -74,7 +74,9 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
                     store=request.data['store'],
                     expected_delivery_date=request.data['expected_delivery_date'],
                     notes=request.data.get('notes', ''),
-                    supplier_reference=request.data.get('supplier_reference', '')
+                    supplier_reference=request.data.get('supplier_reference', ''),
+                    shipping_cost=request.data.get('shipping_cost', 0),
+                    status=request.data.get('status', 'draft')
                 )
                 
                 # Créer les items
@@ -82,19 +84,37 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
                 total_tva = 0
                 
                 for item_data in items_data:
+                    # Récupérer les informations du produit
+                    product = None
+                    product_name = item_data.get('product_name', '')
+                    product_reference = item_data.get('product_reference', '')
+                    
+                    if item_data.get('product'):
+                        try:
+                            product = Product.objects.get(id=item_data['product'])
+                            product_name = product.name
+                            product_reference = product.reference
+                        except Product.DoesNotExist:
+                            pass
+                    
+                    # Créer l'item
                     item = PurchaseOrderItem.objects.create(
                         purchase_order=purchase_order,
-                        product_id=item_data.get('product'),
-                        product_reference=item_data['product_reference'],
-                        product_name=item_data['product_name'],
-                        quantity_ordered=item_data['quantity_ordered'],
-                        unit_price_ht=item_data['unit_price_ht'],
+                        product=product,
+                        product_reference=product_reference,
+                        product_name=product_name,
+                        quantity_ordered=item_data.get('quantity_ordered', item_data.get('quantity', 1)),
+                        unit_price_ht=item_data.get('unit_price_ht', item_data.get('unit_price', 0)),
                         tva_rate=item_data.get('tva_rate', 20),
                     )
                     
                     subtotal_ht += float(item.subtotal_ht)
                     tva = float(item.subtotal_ht) * float(item.tva_rate) / 100
                     total_tva += tva
+                
+                # Ajouter les frais de port au total HT
+                shipping_cost = float(request.data.get('shipping_cost', 0))
+                subtotal_ht += shipping_cost
                 
                 # Mettre à jour les totaux
                 purchase_order.subtotal_ht = subtotal_ht
@@ -104,6 +124,75 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
                 
                 serializer = self.get_serializer(purchase_order)
                 return Response(serializer.data, status=status.HTTP_201_CREATED)
+                
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+    
+    def update(self, request, *args, **kwargs):
+        """Mettre à jour un bon de commande"""
+        try:
+            with transaction.atomic():
+                instance = self.get_object()
+                items_data = request.data.get('items', [])
+                
+                # Mettre à jour les informations de base
+                instance.supplier_id = request.data.get('supplier', instance.supplier_id)
+                instance.store = request.data.get('store', instance.store)
+                instance.expected_delivery_date = request.data.get('expected_delivery_date', instance.expected_delivery_date)
+                instance.notes = request.data.get('notes', instance.notes)
+                instance.supplier_reference = request.data.get('supplier_reference', instance.supplier_reference)
+                instance.shipping_cost = request.data.get('shipping_cost', instance.shipping_cost)
+                instance.status = request.data.get('status', instance.status)
+                
+                # Si des items sont fournis, recalculer
+                if items_data:
+                    # Supprimer les anciens items
+                    instance.items.all().delete()
+                    
+                    # Créer les nouveaux items
+                    subtotal_ht = 0
+                    total_tva = 0
+                    
+                    for item_data in items_data:
+                        product = None
+                        product_name = item_data.get('product_name', '')
+                        product_reference = item_data.get('product_reference', '')
+                        
+                        if item_data.get('product'):
+                            try:
+                                product = Product.objects.get(id=item_data['product'])
+                                product_name = product.name
+                                product_reference = product.reference
+                            except Product.DoesNotExist:
+                                pass
+                        
+                        item = PurchaseOrderItem.objects.create(
+                            purchase_order=instance,
+                            product=product,
+                            product_reference=product_reference,
+                            product_name=product_name,
+                            quantity_ordered=item_data.get('quantity_ordered', item_data.get('quantity', 1)),
+                            unit_price_ht=item_data.get('unit_price_ht', item_data.get('unit_price', 0)),
+                            tva_rate=item_data.get('tva_rate', 20),
+                        )
+                        
+                        subtotal_ht += float(item.subtotal_ht)
+                        tva = float(item.subtotal_ht) * float(item.tva_rate) / 100
+                        total_tva += tva
+                    
+                    # Ajouter les frais de port
+                    shipping_cost = float(request.data.get('shipping_cost', 0))
+                    subtotal_ht += shipping_cost
+                    
+                    # Mettre à jour les totaux
+                    instance.subtotal_ht = subtotal_ht
+                    instance.total_tva = total_tva
+                    instance.total_ttc = subtotal_ht + total_tva
+                
+                instance.save()
+                
+                serializer = self.get_serializer(instance)
+                return Response(serializer.data)
                 
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
