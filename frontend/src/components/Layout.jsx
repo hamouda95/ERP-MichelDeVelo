@@ -1,7 +1,19 @@
 import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store';
-import { HomeIcon, CubeIcon, UserGroupIcon, ShoppingCartIcon, ArrowRightOnRectangleIcon } from '@heroicons/react/24/outline';
+import { 
+  HomeIcon, 
+  CubeIcon, 
+  UserGroupIcon, 
+  ShoppingCartIcon, 
+  ArrowRightOnRectangleIcon,
+  WrenchScrewdriverIcon,
+  DocumentTextIcon,
+  TruckIcon,
+  CalendarDaysIcon,
+  BuildingOfficeIcon,
+  CurrencyDollarIcon 
+} from '@heroicons/react/24/outline';
 
 export default function Layout({ children }) {
   const location = useLocation();
@@ -18,6 +30,12 @@ export default function Layout({ children }) {
     { name: 'Produits', href: '/products', icon: CubeIcon },
     { name: 'Clients', href: '/clients', icon: UserGroupIcon },
     { name: 'Vente', href: '/cart', icon: ShoppingCartIcon },
+    { name: 'Réparations', href: '/repairs', icon: WrenchScrewdriverIcon },
+    { name: 'Devis', href: '/quotes', icon: DocumentTextIcon },
+    { name: 'Fournisseurs', href: '/suppliers', icon: TruckIcon },
+    { name: 'RDV', href: '/appointments', icon: CalendarDaysIcon },
+    { name: 'Achats', href: '/Purchases', icon: BuildingOfficeIcon },
+    { name: 'Comptabilité', href: '/Finance', icon: CurrencyDollarIcon },
   ];
 
   return (
@@ -35,7 +53,7 @@ export default function Layout({ children }) {
         </div>
 
         {/* Navigation */}
-        <nav className="p-4 space-y-2">
+        <nav className="p-4 space-y-2 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 12rem)' }}>
           {navigation.map((item) => {
             const Icon = item.icon;
             const isActive = location.pathname === item.href;
@@ -57,7 +75,7 @@ export default function Layout({ children }) {
         </nav>
 
         {/* User info */}
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t">
+        <div className="absolute bottom-0 left-0 right-0 p-4 border-t bg-white">
           <div className="flex items-center gap-3 mb-3">
             <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
               <span className="text-blue-600 font-semibold">
