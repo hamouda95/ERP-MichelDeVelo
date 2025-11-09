@@ -141,21 +141,35 @@ export default function Quotes() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
     try {
+      const normalizedItems = formData.items.map(item => ({
+        ...item,
+        quantity: Number(item.quantity),
+        unit_price_ht: Number(item.unit_price_ht),
+        unit_price_ttc: Number(item.unit_price_ttc),
+        tva_rate: Number(item.tva_rate),
+        discount: Number(item.discount)
+      }));
+
+      const payload = { ...formData, items: normalizedItems, discount_amount: Number(formData.discount_amount) };
+
       if (selectedQuote) {
-        await api.put(`/quotes/${selectedQuote.id}/`, formData);
+        await api.put(`/quotes/${selectedQuote.id}/`, payload);
         showNotification('Devis mis à jour avec succès');
       } else {
-        await api.post('/quotes/', formData);
+        await api.post('/quotes/', payload);
         showNotification('Devis créé avec succès');
       }
-      fetchQuotes();
+
+      fetchQuotes(); // recharge la liste
       setShowModal(false);
     } catch (error) {
       console.error('Erreur:', error);
       showNotification('Erreur lors de la sauvegarde', 'error');
     }
   };
+
 
   const handleDelete = async (id) => {
     if (window.confirm('Êtes-vous sûr de vouloir supprimer ce devis ?')) {
@@ -325,50 +339,45 @@ export default function Quotes() {
           <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
-              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Produit</th>
-              <th className="px-4 py-2 text-right text-xs font-medium text-gray-500">Qté</th>
-              <th className="px-4 py-2 text-right text-xs font-medium text-gray-500">Prix TTC</th>
-              <th className="px-4 py-2 text-right text-xs font-medium text-gray-500">TVA</th>
-              <th className="px-4 py-2 text-right text-xs font-medium text-gray-500">Prix HT</th>
-              <th className="px-4 py-2 text-right text-xs font-medium text-gray-500">Remise</th>
-              <th className="px-4 py-2 text-right text-xs font-medium text-gray-500">Total TTC</th>
+              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">N° Devis</th>
+              
               <th></th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {formData.items.map((item, index) => {
-              const totalTtc = item.quantity * item.unit_price_ttc - item.discount;
-              const totalHt = item.quantity * item.unit_price_ht - (item.discount / (1 + item.tva_rate / 100));
-              return (
+            {filteredQuotes.length > 0 ? (
+              filteredQuotes.map((quote, index) => (
                 <tr key={index}>
-                  <td className="px-4 py-2 text-sm">{item.product_name}</td>
-                  <td className="px-4 py-2 text-sm text-right">{item.quantity}</td>
-                  <td className="px-4 py-2 text-sm text-right">{item.unit_price_ttc.toFixed(2)}€</td>
-                  <td className="px-4 py-2 text-sm text-right">{item.tva_rate}%</td>
-                  <td className="px-4 py-2 text-sm text-right">{item.unit_price_ht.toFixed(2)}€</td>
-                  <td className="px-4 py-2 text-sm text-right">{item.discount.toFixed(2)}€</td>
-                  <td className="px-4 py-2 text-sm text-right">{totalTtc.toFixed(2)}€</td>
+                  <td className="px-4 py-2 text-sm">
+                    {quote.reference_number || '—'}
+                  </td>
                   <td className="px-4 py-2 text-right">
-                    
                     <button
                       type="button"
-                      onClick={() => handlePrint(selectedQuote.id)}
+                      onClick={() => handlePrint(quote.id)}
                       className="px-2 py-2 bg-green-600 text-white rounded-lg hover:bg-gray-700 mr-2"
                     >
                       PDF
                     </button>
                     <button
                       type="button"
-                      onClick={() => handleRemoveItem(index)}
+                      onClick={() => handleDelete(quote.id)}
                       className="text-red-600 hover:text-red-900"
                     >
                       <TrashIcon className="w-4 h-4" />
                     </button>
                   </td>
                 </tr>
-              );
-            })}
+              ))
+            ) : (
+              <tr>
+                <td colSpan="2" className="px-4 py-2 text-center text-gray-500">
+                  Aucun devis trouvé
+                </td>
+              </tr>
+            )}
           </tbody>
+
         </table>
 
         </div>
