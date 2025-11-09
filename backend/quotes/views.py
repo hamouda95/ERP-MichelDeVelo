@@ -9,6 +9,9 @@ from .serializers import QuoteSerializer
 from products.models import Product
 from orders.models import Order, OrderItem
 from django.utils.dateparse import parse_date
+from django.http import HttpResponse
+from reportlab.pdfgen import canvas
+import io
 
 
 class QuoteViewSet(viewsets.ModelViewSet):
@@ -204,3 +207,41 @@ class QuoteViewSet(viewsets.ModelViewSet):
     def print(self, request, pk=None):
         """Alias pour generate_pdf pour compatibilité frontend"""
         return self.generate_pdf(request, pk)
+    
+    @action(detail=True, methods=['get'])
+    def print(self, request, pk=None):
+        """Générer et renvoyer un PDF du devis"""
+        quote = self.get_object()
+
+        # Création d'un PDF en mémoire
+        buffer = io.BytesIO()
+        p = canvas.Canvas(buffer)
+        
+        # Contenu du PDF
+        p.setFont("Helvetica-Bold", 16)
+        p.drawString(100, 800, f"Devis n°{quote.quote_number}")
+        p.setFont("Helvetica", 12)
+        p.drawString(100, 780, f"Client : {quote.client}")
+        p.drawString(100, 760, f"Magasin : {quote.store}")
+        p.drawString(100, 740, f"Valide jusqu'au : {quote.valid_until}")
+        
+        y = 700
+        p.drawString(100, y, "Articles :")
+        for item in quote.items.all():
+            y -= 20
+            p.drawString(120, y, f"{item.product.name} - Qté : {item.quantity} - Prix HT : {item.unit_price_ht}€")
+        
+        y -= 40
+        p.drawString(100, y, f"Total HT : {quote.subtotal_ht}€")
+        y -= 20
+        p.drawString(100, y, f"TVA : {quote.total_tva}€")
+        y -= 20
+        p.drawString(100, y, f"Total TTC : {quote.total_ttc}€")
+
+        p.showPage()
+        p.save()
+
+        buffer.seek(0)
+        response = HttpResponse(buffer, content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="devis_{quote.quote_number}.pdf"'
+        return response
