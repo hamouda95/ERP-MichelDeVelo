@@ -2,16 +2,24 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db import transaction
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import filters
 from .models import Quote, QuoteItem
 from .serializers import QuoteSerializer
 from products.models import Product
 from orders.models import Order, OrderItem
+from django.utils.dateparse import parse_date
 
 
 class QuoteViewSet(viewsets.ModelViewSet):
     queryset = Quote.objects.all()
     serializer_class = QuoteSerializer
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['status', 'store', 'client']
+    search_fields = ['quote_number', 'client__first_name', 'client__last_name']
+    ordering_fields = ['created_at', 'quote_date', 'valid_until']
     ordering = ['-created_at']
+    
     
     def create(self, request, *args, **kwargs):
         """Créer un devis (similaire à une commande mais sans affecter le stock)"""
@@ -24,15 +32,20 @@ class QuoteViewSet(viewsets.ModelViewSet):
                         {'error': 'Aucun article dans le devis'}, 
                         status=status.HTTP_400_BAD_REQUEST
                     )
+                valid_until = request.data['valid_until']
+                if isinstance(valid_until, str):
+                    valid_until = parse_date(valid_until)
                 
+
+    
                 # Créer le devis
                 quote = Quote.objects.create(
                     client_id=request.data['client'],
                     user=request.user,
                     store=request.data['store'],
-                    valid_until=request.data['valid_until'],
+                    valid_until=valid_until,
                     notes=request.data.get('notes', '')
-                )
+)
                 
                 # Créer les items
                 subtotal_ht = 0
@@ -41,17 +54,32 @@ class QuoteViewSet(viewsets.ModelViewSet):
                 for item_data in items_data:
                     product = Product.objects.get(id=item_data['product'])
                     
+                    # Calculer les prix
+                    unit_price_ht = float(item_data.get('unit_price', product.price_ht))
+                    unit_price_ttc = float(item_data.get('unit_price_ttc', product.price_ttc))
+                    tva_rate = float(item_data.get('tva_rate', product.tva_rate))
+                    quantity = int(item_data['quantity'])
+                    
                     quote_item = QuoteItem.objects.create(
                         quote=quote,
                         product=product,
-                        quantity=item_data['quantity'],
-                        unit_price_ht=float(item_data['unit_price_ht']),
-                        unit_price_ttc=float(item_data['unit_price_ttc']),
-                        tva_rate=float(item_data['tva_rate']),
+                        quantity=quantity,
+                        unit_price_ht=unit_price_ht,
+                        unit_price_ttc=unit_price_ttc,
+                        tva_rate=tva_rate,
                     )
                     
                     subtotal_ht += float(quote_item.subtotal_ht)
                     total_tva += (float(quote_item.subtotal_ttc) - float(quote_item.subtotal_ht))
+                
+                # Appliquer les remises si présentes
+                discount_amount = float(request.data.get('discount_amount', 0))
+                if discount_amount > 0:
+                    discount_type = request.data.get('discount_type', 'amount')
+                    if discount_type == 'percentage':
+                        discount_amount = subtotal_ht * (discount_amount / 100)
+                    subtotal_ht -= discount_amount
+                    quote.discount_amount = discount_amount
                 
                 # Mettre à jour les totaux
                 quote.subtotal_ht = subtotal_ht
@@ -62,6 +90,8 @@ class QuoteViewSet(viewsets.ModelViewSet):
                 serializer = self.get_serializer(quote)
                 return Response(serializer.data, status=status.HTTP_201_CREATED)
                 
+        except Product.DoesNotExist:
+            return Response({'error': 'Produit introuvable'}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
     
@@ -157,7 +187,7 @@ class QuoteViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(quote)
         return Response(serializer.data)
     
-    @action(detail=True, methods=['post'])
+    @action(detail=True, methods=['post', 'get'])
     def generate_pdf(self, request, pk=None):
         """Générer le PDF du devis"""
         quote = self.get_object()
@@ -169,3 +199,8 @@ class QuoteViewSet(viewsets.ModelViewSet):
             'message': 'PDF généré avec succès',
             'pdf_url': quote.quote_pdf.url if quote.quote_pdf else None
         })
+    
+    @action(detail=True, methods=['get'])
+    def print(self, request, pk=None):
+        """Alias pour generate_pdf pour compatibilité frontend"""
+        return self.generate_pdf(request, pk)
