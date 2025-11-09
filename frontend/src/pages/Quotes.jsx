@@ -186,22 +186,45 @@ export default function Quotes() {
 
   const handlePrint = async (quoteId) => {
     try {
-      const response = await api.get(`/quotes/${quoteId}/print/`, { responseType: 'arraybuffer' });
+      // On récupère le PDF depuis l'API
+      const response = await api.get(`/quotes/${quoteId}/print/`, {
+        responseType: 'arraybuffer', // important pour recevoir les bytes
+      });
+
+      // Vérification simple si la réponse ressemble à un PDF
+      const pdfHeader = new Uint8Array(response.data).subarray(0, 4);
+      const headerString = String.fromCharCode(...pdfHeader);
+      if (headerString !== '%PDF') {
+        console.error('Le fichier reçu n’est pas un PDF valide', response.data);
+        showNotification("Erreur : le PDF n'a pas pu être généré.", 'error');
+        return;
+      }
+
+      // Création du Blob PDF
       const blob = new Blob([response.data], { type: 'application/pdf' });
+
+      // Création de l’URL et du lien de téléchargement
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
       link.setAttribute('download', `devis_${quoteId}.pdf`);
       document.body.appendChild(link);
       link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
-      showNotification('Devis téléchargé');
+
+      // Nettoyage après téléchargement
+      setTimeout(() => {
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+      }, 1000);
+
+      showNotification('Devis téléchargé avec succès');
+
     } catch (error) {
-      console.error('Erreur:', error);
-      showNotification('Erreur lors de l\'impression', 'error');
+      console.error('Erreur lors de l’impression du devis :', error);
+      showNotification("Erreur lors de l'impression du PDF", 'error');
     }
   };
+
 
 
   const handleConvertToOrder = async (quoteId) => {
