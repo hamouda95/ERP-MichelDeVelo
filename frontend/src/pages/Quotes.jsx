@@ -36,9 +36,11 @@ export default function Quotes() {
   const [newItem, setNewItem] = useState({
     product: '',
     quantity: 1,
-    unit_price: 0,
-    discount: 0
-  });
+    unit_price_ttc: '',
+    tva_rate: 20,
+    discount: ''
+});
+
 
   const statusConfig = {
     draft: { label: 'Brouillon', color: 'bg-gray-100 text-gray-800' },
@@ -170,22 +172,23 @@ export default function Quotes() {
 
   const handlePrint = async (quoteId) => {
     try {
-      const response = await api.get(`/quotes/${quoteId}/print/`, {
-        responseType: 'blob'
-      });
-      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const response = await api.get(`/quotes/${quoteId}/print/`, { responseType: 'arraybuffer' });
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
       link.setAttribute('download', `devis_${quoteId}.pdf`);
       document.body.appendChild(link);
       link.click();
       link.remove();
+      window.URL.revokeObjectURL(url);
       showNotification('Devis téléchargé');
     } catch (error) {
       console.error('Erreur:', error);
       showNotification('Erreur lors de l\'impression', 'error');
     }
   };
+
 
   const handleConvertToOrder = async (quoteId) => {
     if (window.confirm('Voulez-vous convertir ce devis en commande ?')) {
@@ -204,6 +207,9 @@ export default function Quotes() {
     if (newItem.product && newItem.quantity > 0) {
       const product = products.find(p => p.id === parseInt(newItem.product));
       if (product) {
+        const priceTtc = parseFloat(newItem.unit_price_ttc);
+        const priceHt = priceTtc / (1 + newItem.tva_rate / 100);
+
         setFormData({
           ...formData,
           items: [
@@ -212,15 +218,25 @@ export default function Quotes() {
               product: product.id,
               product_name: product.name,
               quantity: newItem.quantity,
-              unit_price: newItem.unit_price || product.price,
-              discount: newItem.discount || 0
+              unit_price_ttc: priceTtc,
+              unit_price_ht: priceHt,
+              tva_rate: newItem.tva_rate,
+              discount: parseFloat(newItem.discount) || 0
             }
           ]
         });
-        setNewItem({ product: '', quantity: 1, unit_price: 0, discount: 0 });
-      }
+
+        setNewItem({
+          product: '',
+          quantity: 1,
+          unit_price_ttc: '',
+          unit_price_ht: '',
+          tva_rate: 20,
+          discount: ''
+      });
     }
-  };
+  }
+};
 
   const handleRemoveItem = (index) => {
     const updatedItems = formData.items.filter((_, i) => i !== index);
@@ -228,7 +244,7 @@ export default function Quotes() {
   };
 
   const calculateItemTotal = (item) => {
-    const subtotal = item.quantity * item.unit_price;
+    const subtotal = item.quantity * item.unit_price_ht;
     return subtotal - item.discount;
   };
 
@@ -307,78 +323,54 @@ export default function Quotes() {
       <div className="bg-white rounded-lg shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Référence</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Client</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Magasin</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Valide jusqu'au</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Montant</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Statut</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {filteredQuotes.map((quote) => (
-                <tr key={quote.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{quote.reference_number}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{quote.client.name}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{storeLabels[quote.store]}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {new Date(quote.created_at).toLocaleDateString('fr-FR')}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {new Date(quote.valid_until).toLocaleDateString('fr-FR')}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {quote.total_amount.toFixed(2)}€
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${statusConfig[quote.status].color}`}>
-                      {statusConfig[quote.status].label}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <div className="flex justify-end gap-2">
-                      <button
-                        onClick={() => { setSelectedQuote(quote); setShowDetailModal(true); }}
-                        className="text-blue-600 hover:text-blue-900"
-                      >
-                        <EyeIcon className="w-5 h-5" />
-                      </button>
-                      <button
-                        onClick={() => handlePrint(quote.id)}
-                        className="text-gray-600 hover:text-gray-900"
-                      >
-                        <PrinterIcon className="w-5 h-5" />
-                      </button>
-                      {quote.status === 'accepted' && (
-                        <button
-                          onClick={() => handleConvertToOrder(quote.id)}
-                          className="text-green-600 hover:text-green-900"
-                        >
-                          <ShoppingCartIcon className="w-5 h-5" />
-                        </button>
-                      )}
-                      <button
-                        onClick={() => openModal(quote)}
-                        className="text-indigo-600 hover:text-indigo-900"
-                      >
-                        <PencilIcon className="w-5 h-5" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(quote.id)}
-                        className="text-red-600 hover:text-red-900"
-                      >
-                        <TrashIcon className="w-5 h-5" />
-                      </button>
-                    </div>
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Produit</th>
+              <th className="px-4 py-2 text-right text-xs font-medium text-gray-500">Qté</th>
+              <th className="px-4 py-2 text-right text-xs font-medium text-gray-500">Prix TTC</th>
+              <th className="px-4 py-2 text-right text-xs font-medium text-gray-500">TVA</th>
+              <th className="px-4 py-2 text-right text-xs font-medium text-gray-500">Prix HT</th>
+              <th className="px-4 py-2 text-right text-xs font-medium text-gray-500">Remise</th>
+              <th className="px-4 py-2 text-right text-xs font-medium text-gray-500">Total TTC</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {formData.items.map((item, index) => {
+              const totalTtc = item.quantity * item.unit_price_ttc - item.discount;
+              const totalHt = item.quantity * item.unit_price_ht - (item.discount / (1 + item.tva_rate / 100));
+              return (
+                <tr key={index}>
+                  <td className="px-4 py-2 text-sm">{item.product_name}</td>
+                  <td className="px-4 py-2 text-sm text-right">{item.quantity}</td>
+                  <td className="px-4 py-2 text-sm text-right">{item.unit_price_ttc.toFixed(2)}€</td>
+                  <td className="px-4 py-2 text-sm text-right">{item.tva_rate}%</td>
+                  <td className="px-4 py-2 text-sm text-right">{item.unit_price_ht.toFixed(2)}€</td>
+                  <td className="px-4 py-2 text-sm text-right">{item.discount.toFixed(2)}€</td>
+                  <td className="px-4 py-2 text-sm text-right">{totalTtc.toFixed(2)}€</td>
+                  <td className="px-4 py-2 text-right">
+                    
+                    <button
+                      type="button"
+                      onClick={() => handlePrint(selectedQuote.id)}
+                      className="px-2 py-2 bg-green-600 text-white rounded-lg hover:bg-gray-700 mr-2"
+                    >
+                      PDF
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveItem(index)}
+                      className="text-red-600 hover:text-red-900"
+                    >
+                      <TrashIcon className="w-4 h-4" />
+                    </button>
                   </td>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              );
+            })}
+          </tbody>
+        </table>
+
         </div>
       </div>
 
@@ -453,11 +445,17 @@ export default function Quotes() {
                       value={newItem.product}
                       onChange={(e) => {
                         const product = products.find(p => p.id === parseInt(e.target.value));
+                        if (product) {
+                          const priceTtc = parseFloat(product.price_ttc || product.price || 0);
+                          const tva = product.tva_rate || 20;
+                          const priceHt = priceTtc / (1 + tva / 100);
                         setNewItem({ 
                           ...newItem, 
                           product: e.target.value,
-                          unit_price: product ? product.price : 0
+                          unit_price_ttc: priceTtc.toFixed(2),
+                          tva_rate: tva,
                         });
+                       }
                       }}
                       className="col-span-5 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     >
@@ -471,16 +469,41 @@ export default function Quotes() {
                       min="1"
                       value={newItem.quantity}
                       onChange={(e) => setNewItem({ ...newItem, quantity: parseInt(e.target.value) })}
-                      className="col-span-2 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="col-span-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       placeholder="Qté"
                     />
                     <input
                       type="number"
                       step="0.01"
-                      value={newItem.unit_price}
-                      onChange={(e) => setNewItem({ ...newItem, unit_price: parseFloat(e.target.value) })}
-                      className="col-span-2 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                      placeholder="Prix"
+                      value={newItem.unit_price_ttc}
+                      onChange={(e) => {
+                        const priceTtc = parseFloat(e.target.value) || 0;
+                        const priceHt = priceTtc / (1 + newItem.tva_rate / 100);
+                        setNewItem({ ...newItem, unit_price_ttc: priceTtc, unit_price_ht: priceHt });
+                      }}
+                      className="col-span-2 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-right"
+                      placeholder="Prix TTC"
+                    />
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={newItem.tva_rate}
+                      onChange={(e) => {
+                        const tva = parseFloat(e.target.value) || 0;
+                        const priceHt = newItem.unit_price_ttc / (1 + tva / 100);
+                        setNewItem({ ...newItem, tva_rate: tva, unit_price_ht: priceHt });
+                      }}
+                      className="col-span-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-right"
+                      placeholder="TVA %"
+                    />
+
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={newItem.unit_price_ht ? newItem.unit_price_ht.toFixed(2) : ''}
+                      readOnly
+                      className="col-span-2 px-4 py-2 border border-gray-100 bg-gray-50 rounded-lg text-right"
+                      placeholder="Prix HT"
                     />
                     <input
                       type="number"
@@ -515,10 +538,9 @@ export default function Quotes() {
                           {formData.items.map((item, index) => (
                             <tr key={index}>
                               <td className="px-4 py-2 text-sm">{item.product_name}</td>
-                              <td className="px-4 py-2 text-sm text-right">{item.quantity}</td>
-                              <td className="px-4 py-2 text-sm text-right">{item.unit_price.toFixed(2)}€</td>
-                              <td className="px-4 py-2 text-sm text-right">{item.discount.toFixed(2)}€</td>
-                              <td className="px-4 py-2 text-sm text-right font-semibold">{calculateItemTotal(item).toFixed(2)}€</td>
+                              <td className="px-4 py-2 text-sm text-right">{item.quantity ?? 0}</td>
+                              <td className="px-4 py-2 text-sm text-right">{item.unit_price_ht != null ? item.unit_price_ht.toFixed(2) : '0.00'}€</td>
+                              <td className="px-4 py-2 text-sm text-right">{item.discount != null ? item.discount.toFixed(2) : '0.00'}€</td>
                               <td className="px-4 py-2 text-right">
                                 <button
                                   type="button"
@@ -646,13 +668,13 @@ export default function Quotes() {
                             <td className="px-4 py-2 text-sm text-right">{item.quantity}</td>
                             <td className="px-4 py-2 text-sm text-right">{item.unit_price.toFixed(2)}€</td>
                             <td className="px-4 py-2 text-sm text-right">
-                              {(item.quantity * item.unit_price - item.discount).toFixed(2)}€
+                              {(item.quantity * item.unit_price_ht - item.discount).toFixed(2)}€
                             </td>
                           </tr>
                         ))}
                         <tr className="bg-gray-50 font-semibold">
                           <td colSpan="3" className="px-4 py-2 text-right">Total</td>
-                          <td className="px-4 py-2 text-right">{selectedQuote.total_amount.toFixed(2)}€</td>
+                          <td className="px-4 py-2 text-right">{parseFloat(selectedQuote.total_amount || 0).toFixed(2)}€</td>
                         </tr>
                       </tbody>
                     </table>
