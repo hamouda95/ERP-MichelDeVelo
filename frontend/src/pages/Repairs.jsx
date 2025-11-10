@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   PlusIcon,
   MagnifyingGlassIcon,
@@ -8,7 +8,6 @@ import {
   PrinterIcon,
 } from '@heroicons/react/24/outline';
 import { repairsAPI, clientsAPI, productsAPI } from '../services/api';
-import Select from 'react-select';
 
 
 export default function Repairs() {
@@ -23,6 +22,13 @@ export default function Repairs() {
   const [filterStore, setFilterStore] = useState('all');
   const [notification, setNotification] = useState({ show: false, message: '', type: 'success' });
   const [loading, setLoading] = useState(false);
+  
+  // États pour la recherche de clients
+  const [clientSearch, setClientSearch] = useState('');
+  const [clientSearchResults, setClientSearchResults] = useState([]);
+  const [showClientDropdown, setShowClientDropdown] = useState(false);
+  const [selectedClientName, setSelectedClientName] = useState('');
+  const clientSearchRef = useRef(null);
 
   const [formData, setFormData] = useState({
     client: '',
@@ -67,13 +73,12 @@ export default function Repairs() {
     garches: 'Garches'
   };
 
-  useEffect(() => {
-    fetchRepairs();
-    fetchClients();
-    fetchProducts();
+  const showNotification = useCallback((message, type = 'success') => {
+    setNotification({ show: true, message, type });
+    setTimeout(() => setNotification({ show: false, message: '', type: 'success' }), 3000);
   }, []);
 
-  const fetchRepairs = async () => {
+  const fetchRepairs = useCallback(async () => {
     try {
       setLoading(true);
       const response = await repairsAPI.getAll();
@@ -90,9 +95,9 @@ export default function Repairs() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [showNotification]);
 
-  const fetchClients = async () => {
+  const fetchClients = useCallback(async () => {
     try {
       const response = await clientsAPI.getAll();
       const data = response.data;
@@ -106,9 +111,9 @@ export default function Repairs() {
       console.error('Erreur:', error);
       showNotification('Erreur lors du chargement des clients', 'error');
     }
-  };
+  }, [showNotification]);
 
-  const fetchProducts = async () => {
+  const fetchProducts = useCallback(async () => {
     try {
       const response = await productsAPI.getAll();
       const data = response.data;
@@ -122,11 +127,59 @@ export default function Repairs() {
       console.error('Erreur:', error);
       showNotification('Erreur lors du chargement des produits', 'error');
     }
-  };
+  }, [showNotification]);
 
-  const showNotification = (message, type = 'success') => {
-    setNotification({ show: true, message, type });
-    setTimeout(() => setNotification({ show: false, message: '', type: 'success' }), 3000);
+  useEffect(() => {
+    fetchRepairs();
+    fetchClients();
+    fetchProducts();
+  }, [fetchRepairs, fetchClients, fetchProducts]);
+
+  // Gestion du clic en dehors du dropdown
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (clientSearchRef.current && !clientSearchRef.current.contains(event.target)) {
+        setShowClientDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Recherche de clients en temps réel
+  useEffect(() => {
+    const searchClients = async () => {
+      if (clientSearch.length >= 2) {
+        try {
+          const filtered = clients.filter(client => {
+            const fullName = `${client.first_name} ${client.last_name}`.toLowerCase();
+            const email = client.email.toLowerCase();
+            const phone = client.phone || '';
+            const searchLower = clientSearch.toLowerCase();
+            return fullName.includes(searchLower) || 
+                   email.includes(searchLower) || 
+                   phone.includes(searchLower);
+          });
+          setClientSearchResults(filtered);
+          setShowClientDropdown(true);
+        } catch (error) {
+          console.error('Erreur lors de la recherche:', error);
+        }
+      } else {
+        setClientSearchResults([]);
+        setShowClientDropdown(false);
+      }
+    };
+
+    const debounceTimer = setTimeout(searchClients, 300);
+    return () => clearTimeout(debounceTimer);
+  }, [clientSearch, clients]);
+
+  const handleSelectClient = (client) => {
+    setFormData({ ...formData, client: client.id });
+    setSelectedClientName(`${client.first_name} ${client.last_name}`);
+    setClientSearch(`${client.first_name} ${client.last_name}`);
+    setShowClientDropdown(false);
   };
 
   const openModal = (repair = null) => {
@@ -148,6 +201,8 @@ export default function Repairs() {
         notes: repair.notes || '',
         estimated_completion: repair.estimated_completion || ''
       });
+      setSelectedClientName(repair.client.name || `${repair.client.first_name} ${repair.client.last_name}`);
+      setClientSearch(repair.client.name || `${repair.client.first_name} ${repair.client.last_name}`);
     } else {
       setSelectedRepair(null);
       setFormData({
@@ -166,12 +221,20 @@ export default function Repairs() {
         notes: '',
         estimated_completion: ''
       });
+      setSelectedClientName('');
+      setClientSearch('');
     }
     setShowModal(true);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    if (!formData.client) {
+      showNotification('Veuillez sélectionner un client', 'error');
+      return;
+    }
+    
     try {
       setLoading(true);
       
@@ -438,26 +501,63 @@ export default function Repairs() {
               <form onSubmit={handleSubmit}>
                 {/* Client et Magasin */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                  <div>
+                  <div ref={clientSearchRef}>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Client *</label>
-                    <Select
-                      required
-                      options={clients.map(client => ({
-                        value: client.id,
-                        label: `${client.first_name} ${client.last_name} - ${client.email}`
-                      }))}
-                      value={
-                        clients
-                          .map(client => ({
-                            value: client.id,
-                            label: `${client.first_name} ${client.last_name} - ${client.email}`
-                          }))
-                          .find(c => c.value === formData.client) || null
-                      }
-                      onChange={(selectedOption) => setFormData({ ...formData, client: selectedOption.value })}
-                      placeholder="Sélectionner un client"
-                      isClearable
-                    />
+                    <div className="relative">
+                      <input
+                        type="text"
+                        required
+                        value={clientSearch}
+                        onChange={(e) => {
+                          setClientSearch(e.target.value);
+                          if (!e.target.value) {
+                            setFormData({ ...formData, client: '' });
+                            setSelectedClientName('');
+                          }
+                        }}
+                        onFocus={() => {
+                          if (clientSearchResults.length > 0) {
+                            setShowClientDropdown(true);
+                          }
+                        }}
+                        placeholder="Rechercher un client (nom, email, téléphone)..."
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      />
+                      
+                      {/* Dropdown des résultats */}
+                      {showClientDropdown && clientSearchResults.length > 0 && (
+                        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                          {clientSearchResults.map((client) => (
+                            <div
+                              key={client.id}
+                              onClick={() => handleSelectClient(client)}
+                              className="px-4 py-2 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+                            >
+                              <div className="font-medium text-gray-900">
+                                {client.first_name} {client.last_name}
+                              </div>
+                              <div className="text-sm text-gray-500">
+                                {client.email} {client.phone && `• ${client.phone}`}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      
+                      {/* Message si aucun résultat */}
+                      {showClientDropdown && clientSearch.length >= 2 && clientSearchResults.length === 0 && (
+                        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg p-4 text-center text-gray-500">
+                          Aucun client trouvé
+                        </div>
+                      )}
+                      
+                      {/* Indicateur de sélection */}
+                      {selectedClientName && (
+                        <div className="mt-1 text-sm text-green-600">
+                          ✓ Client sélectionné: {selectedClientName}
+                        </div>
+                      )}
+                    </div>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Magasin *</label>
