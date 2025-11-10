@@ -201,29 +201,22 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
     def receive_items(self, request, pk=None):
         """Réceptionner les articles d'une commande"""
         purchase_order = self.get_object()
-        items_received = request.data.get('items', [])
-        
+        items_received = PurchaseOrderItem.objects.filter(purchase_order=purchase_order)
+
         try:
             with transaction.atomic():
-                for item_data in items_received:
-                    item_id = item_data['item_id']
-                    quantity_received = item_data['quantity_received']
-                    
-                    item = PurchaseOrderItem.objects.get(
-                        id=item_id, 
-                        purchase_order=purchase_order
-                    )
+                for item in items_received:
                     
                     # Mettre à jour la quantité reçue
-                    item.quantity_received += quantity_received
+                    item.quantity_received += item.quantity_ordered
                     item.save()
                     
                     # Mettre à jour le stock si le produit existe
                     if item.product:
                         if purchase_order.store == 'ville_avray':
-                            item.product.stock_ville_avray += quantity_received
+                            item.product.stock_ville_avray += item.quantity_received
                         else:
-                            item.product.stock_garches += quantity_received
+                            item.product.stock_garches += item.quantity_received
                         item.product.save()
                 
                 # Vérifier si tout est reçu
