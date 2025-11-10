@@ -1,8 +1,6 @@
 import axios from 'axios';
 import { useAuthStore } from '../store';
-
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api';
-
 const api = axios.create({
   baseURL: API_URL,
   headers: {
@@ -126,17 +124,117 @@ export const invoicesAPI = {
 
 // ===== ANALYTICS API =====
 export const analyticsAPI = {
-  // Récupérer les données du dashboard
   getDashboard: () => api.get('/analytics/dashboard/'),
-  
-  // Récupérer les statistiques de ventes
   getSalesStats: (params) => api.get('/analytics/sales/', { params }),
-  
-  // Récupérer les statistiques de produits
   getProductStats: () => api.get('/analytics/products/'),
-  
-  // Récupérer les statistiques de clients
   getClientStats: () => api.get('/analytics/clients/'),
+};
+
+// ===== REPAIRS API =====
+export const repairsAPI = {
+  getAll: (params) => api.get('/repairs/', { params }),
+  getById: (id) => api.get(`/repairs/${id}/`),
+  create: (data) => api.post('/repairs/', data),
+  update: (id, data) => api.put(`/repairs/${id}/`, data),
+  patch: (id, data) => api.patch(`/repairs/${id}/`, data),
+  delete: (id) => api.delete(`/repairs/${id}/`),
+  updateStatus: (id, status) => api.post(`/repairs/${id}/update_status/`, { status }),
+  addItem: (id, itemData) => api.post(`/repairs/${id}/add_item/`, itemData),
+  getStatistics: () => api.get('/repairs/statistics/'),
+  print: (id) => api.get(`/repairs/${id}/print/`, { responseType: 'blob' }),
+};
+
+// ===== QUOTES API =====
+export const quotesAPI = {
+  getAll: (params) => api.get('/quotes/', { params }),
+  getById: (id) => api.get(`/quotes/${id}/`),
+  create: (data) => api.post('/quotes/', data),
+  update: (id, data) => api.put(`/quotes/${id}/`, data),
+  patch: (id, data) => api.patch(`/quotes/${id}/`, data),
+  delete: (id) => api.delete(`/quotes/${id}/`),
+  convertToOrder: (id, paymentData) => api.post(`/quotes/${id}/convert_to_order/`, paymentData),
+  updateStatus: (id, status) => api.post(`/quotes/${id}/update_status/`, { status }),
+  generatePDF: (id) => api.post(`/quotes/${id}/generate_pdf/`),
+  print: (id) => api.get(`/quotes/${id}/print/`, { responseType: 'blob' }),
+};
+
+// ===== SUPPLIERS API =====
+export const suppliersAPI = {
+  getAll: (params) => api.get('/suppliers/suppliers/', { params }),
+  getById: (id) => api.get(`/suppliers/suppliers/${id}/`),
+  create: (data) => api.post('/suppliers/suppliers/', data),
+  update: (id, data) => api.put(`/suppliers/suppliers/${id}/`, data),
+  patch: (id, data) => api.patch(`/suppliers/suppliers/${id}/`, data),
+  delete: (id) => api.delete(`/suppliers/suppliers/${id}/`),
+  getStatistics: (id) => api.get(`/suppliers/suppliers/${id}/statistics/`),
+};
+
+// ===== PURCHASE ORDERS API =====
+export const purchaseOrdersAPI = {
+  getAll: (params) => api.get('/suppliers/purchase-orders/', { params }),
+  getById: (id) => api.get(`/suppliers/purchase-orders/${id}/`),
+  create: (data) => api.post('/suppliers/purchase-orders/', data),
+  update: (id, data) => api.put(`/suppliers/purchase-orders/${id}/`, data),
+  patch: (id, data) => api.patch(`/suppliers/purchase-orders/${id}/`, data),
+  delete: (id) => api.delete(`/suppliers/purchase-orders/${id}/`),
+  receiveItems: (id, itemsData) => api.post(`/suppliers/purchase-orders/${id}/receive_items/`, itemsData),
+  updateStatus: (id, status) => api.post(`/suppliers/purchase-orders/${id}/update_status/`, { status }),
+  print: (id) => api.get(`/suppliers/purchase-orders/${id}/print/`, { responseType: 'blob' }),
+};
+
+// ===== PURCHASE ORDER ITEMS API =====
+export const purchaseOrderItemsAPI = {
+  getAll: (purchaseOrderId) => api.get('/suppliers/purchase-order-items/', { params: { purchase_order: purchaseOrderId } }),
+  getById: (id) => api.get(`/suppliers/purchase-order-items/${id}/`),
+  create: (data) => api.post('/suppliers/purchase-order-items/', data),
+  update: (id, data) => api.put(`/suppliers/purchase-order-items/${id}/`, data),
+  delete: (id) => api.delete(`/suppliers/purchase-order-items/${id}/`),
+};
+
+// ===== FINANCE API =====
+export const financeAPI = {
+  getExpenses: (params) => api.get('/finance/expenses/', { params }),
+  createExpense: (data) => api.post('/finance/expenses/', data),
+  updateExpense: (id, data) => api.put(`/finance/expenses/${id}/`, data),
+  deleteExpense: (id) => api.delete(`/finance/expenses/${id}/`),
+  getProfitLoss: (params) => api.get('/finance/profit-loss/', { params }),
+  exportProfitLoss: (params) => api.get('/finance/profit-loss/export/', { params, responseType: 'blob' }),
+};
+
+// ===== APPOINTMENTS API =====
+export const appointmentsAPI = {
+  getFromWix: () => {
+    console.warn('Wix API non configurée. Veuillez configurer les clés API dans le backend.');
+    return Promise.resolve({ data: [] });
+  },
+  create: (data) => api.post('/appointments/', data),
+  getAll: (params) => api.get('/appointments/', { params }),
+  update: (id, data) => api.put(`/appointments/${id}/`, data),
+  delete: (id) => api.delete(`/appointments/${id}/`),
+};
+
+// ===== UTILITIES =====
+export const downloadFile = (blob, filename) => {
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.setAttribute('download', filename);
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
+};
+
+export const formatPrice = (amount) => {
+  return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(amount);
+};
+
+export const formatDate = (date) => {
+  return new Intl.DateTimeFormat('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' }).format(new Date(date));
+};
+
+export const formatDateTime = (date) => {
+  return new Intl.DateTimeFormat('fr-FR', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(date));
 };
 
 export default api;
