@@ -7,7 +7,9 @@ import {
   EyeIcon,
   PrinterIcon,
 } from '@heroicons/react/24/outline';
-import api from '../services/api';
+import { repairsAPI, clientsAPI, productsAPI } from '../services/api';
+import Select from 'react-select';
+
 
 export default function Repairs() {
   const [repairs, setRepairs] = useState([]);
@@ -20,6 +22,7 @@ export default function Repairs() {
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterStore, setFilterStore] = useState('all');
   const [notification, setNotification] = useState({ show: false, message: '', type: 'success' });
+  const [loading, setLoading] = useState(false);
 
   const [formData, setFormData] = useState({
     client: '',
@@ -34,7 +37,8 @@ export default function Repairs() {
     status: 'pending',
     priority: 'normal',
     parts_needed: [],
-    notes: ''
+    notes: '',
+    estimated_completion: ''
   });
 
   const [newPart, setNewPart] = useState({
@@ -47,7 +51,7 @@ export default function Repairs() {
     in_progress: { label: 'En cours', color: 'bg-blue-100 text-blue-800' },
     waiting_parts: { label: 'Attente pièces', color: 'bg-gray-100 text-gray-800' },
     completed: { label: 'Terminée', color: 'bg-green-100 text-green-800' },
-    delivered: { label: 'Livrée', color: 'bg-green-100 text-green-800' },
+    delivered: { label: 'Livrée', color: 'bg-purple-100 text-purple-800' },
     cancelled: { label: 'Annulée', color: 'bg-red-100 text-red-800' }
   };
 
@@ -71,61 +75,54 @@ export default function Repairs() {
 
   const fetchRepairs = async () => {
     try {
-      const response = await api.get('/repairs/');
+      setLoading(true);
+      const response = await repairsAPI.getAll();
       const data = response.data;
-
-      // Detect the correct array field (handles paginated or wrapped data)
-      const repairsArray =
-        Array.isArray(data) ? data :
-        Array.isArray(data.results) ? data.results :
-        Array.isArray(data.repairs) ? data.repairs :
-        [];
-
+      
+      const repairsArray = Array.isArray(data) ? data :
+                          Array.isArray(data.results) ? data.results :
+                          Array.isArray(data.repairs) ? data.repairs : [];
+      
       setRepairs(repairsArray);
     } catch (error) {
       console.error('Erreur:', error);
       showNotification('Erreur lors du chargement des réparations', 'error');
+    } finally {
+      setLoading(false);
     }
   };
-
 
   const fetchClients = async () => {
     try {
-      const response = await api.get('/clients/');
+      const response = await clientsAPI.getAll();
       const data = response.data;
-
-      // Handle paginated or nested API responses safely
-      const clientsArray =
-        Array.isArray(data) ? data :
-        Array.isArray(data.results) ? data.results :
-        Array.isArray(data.clients) ? data.clients :
-        [];
-
+      
+      const clientsArray = Array.isArray(data) ? data :
+                          Array.isArray(data.results) ? data.results :
+                          Array.isArray(data.clients) ? data.clients : [];
+      
       setClients(clientsArray);
     } catch (error) {
       console.error('Erreur:', error);
+      showNotification('Erreur lors du chargement des clients', 'error');
     }
   };
-
 
   const fetchProducts = async () => {
     try {
-      const response = await api.get('/products/');
+      const response = await productsAPI.getAll();
       const data = response.data;
-
-      // Handle different possible API shapes
-      const productsArray =
-        Array.isArray(data) ? data :
-        Array.isArray(data.results) ? data.results :
-        Array.isArray(data.products) ? data.products :
-        [];
-
+      
+      const productsArray = Array.isArray(data) ? data :
+                           Array.isArray(data.results) ? data.results :
+                           Array.isArray(data.products) ? data.products : [];
+      
       setProducts(productsArray);
     } catch (error) {
       console.error('Erreur:', error);
+      showNotification('Erreur lors du chargement des produits', 'error');
     }
   };
-
 
   const showNotification = (message, type = 'success') => {
     setNotification({ show: true, message, type });
@@ -148,7 +145,8 @@ export default function Repairs() {
         status: repair.status,
         priority: repair.priority,
         parts_needed: repair.parts_needed || [],
-        notes: repair.notes || ''
+        notes: repair.notes || '',
+        estimated_completion: repair.estimated_completion || ''
       });
     } else {
       setSelectedRepair(null);
@@ -165,7 +163,8 @@ export default function Repairs() {
         status: 'pending',
         priority: 'normal',
         parts_needed: [],
-        notes: ''
+        notes: '',
+        estimated_completion: ''
       });
     }
     setShowModal(true);
@@ -174,39 +173,55 @@ export default function Repairs() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      setLoading(true);
+      
+      // Préparer les données en convertissant les champs numériques
+      const dataToSend = {
+        ...formData,
+        estimated_cost: formData.estimated_cost ? parseFloat(formData.estimated_cost) : 0,
+        final_cost: formData.final_cost ? parseFloat(formData.final_cost) : 0,
+      };
+      
       if (selectedRepair) {
-        await api.put(`/repairs/${selectedRepair.id}/`, formData);
+        await repairsAPI.update(selectedRepair.id, dataToSend);
         showNotification('Réparation mise à jour avec succès');
       } else {
-        await api.post('/repairs/', formData);
+        await repairsAPI.create(dataToSend);
         showNotification('Réparation créée avec succès');
       }
-      fetchRepairs();
+      
+      await fetchRepairs();
       setShowModal(false);
     } catch (error) {
       console.error('Erreur:', error);
-      showNotification('Erreur lors de la sauvegarde', 'error');
+      showNotification(
+        error.response?.data?.message || 'Erreur lors de la sauvegarde',
+        'error'
+      );
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleDelete = async (id) => {
     if (window.confirm('Êtes-vous sûr de vouloir supprimer cette réparation ?')) {
       try {
-        await api.delete(`/repairs/${id}/`);
+        setLoading(true);
+        await repairsAPI.delete(id);
         showNotification('Réparation supprimée avec succès');
-        fetchRepairs();
+        await fetchRepairs();
       } catch (error) {
         console.error('Erreur:', error);
         showNotification('Erreur lors de la suppression', 'error');
+      } finally {
+        setLoading(false);
       }
     }
   };
 
   const handlePrint = async (repairId) => {
     try {
-      const response = await api.get(`/repairs/${repairId}/print/`, {
-        responseType: 'blob'
-      });
+      const response = await repairsAPI.print(repairId);
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
@@ -232,7 +247,8 @@ export default function Repairs() {
             {
               product: product.id,
               product_name: product.name,
-              quantity: newPart.quantity
+              quantity: newPart.quantity,
+              unit_price: product.price
             }
           ]
         });
@@ -248,9 +264,10 @@ export default function Repairs() {
 
   const filteredRepairs = repairs.filter(repair => {
     const matchesSearch = 
-      repair.reference_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      repair.client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      repair.bike_brand.toLowerCase().includes(searchTerm.toLowerCase());
+      repair.reference_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      repair.client?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      repair.bike_brand?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      repair.bike_model?.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesStatus = filterStatus === 'all' || repair.status === filterStatus;
     const matchesStore = filterStore === 'all' || repair.store === filterStore;
@@ -296,7 +313,7 @@ export default function Repairs() {
             <option value="waiting_parts">Attente pièces</option>
             <option value="completed">Terminée</option>
             <option value="delivered">Livrée</option>
-            
+            <option value="cancelled">Annulée</option>
           </select>
           <select
             value={filterStore}
@@ -312,82 +329,105 @@ export default function Repairs() {
 
       {/* Table */}
       <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Référence</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Client</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vélo</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Magasin</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Statut</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Priorité</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Coût estimé</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {filteredRepairs.map((repair) => (
-                <tr key={repair.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{repair.reference_number}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{repair.client.name}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {repair.bike_brand} {repair.bike_model}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{storeLabels[repair.store]}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${statusConfig[repair.status].color}`}>
-                      {statusConfig[repair.status].label}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${priorityConfig[repair.priority].color}`}>
-                      {priorityConfig[repair.priority].label}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {new Date(repair.created_at).toLocaleDateString('fr-FR')}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {repair.estimated_cost ? `${repair.estimated_cost}€` : '-'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <div className="flex justify-end gap-2">
-                      <button
-                        onClick={() => { setSelectedRepair(repair); setShowDetailModal(true); }}
-                        className="text-blue-600 hover:text-blue-900"
-                      >
-                        <EyeIcon className="w-5 h-5" />
-                      </button>
-                      <button
-                        onClick={() => handlePrint(repair.id)}
-                        className="text-gray-600 hover:text-gray-900"
-                      >
-                        <PrinterIcon className="w-5 h-5" />
-                      </button>
-                      <button
-                        onClick={() => openModal(repair)}
-                        className="text-indigo-600 hover:text-indigo-900"
-                      >
-                        <PencilIcon className="w-5 h-5" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(repair.id)}
-                        className="text-red-600 hover:text-red-900"
-                      >
-                        <TrashIcon className="w-5 h-5" />
-                      </button>
-                    </div>
-                  </td>
+        {loading ? (
+          <div className="flex justify-center items-center p-8">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          </div>
+        ) : filteredRepairs.length === 0 ? (
+          <div className="text-center py-12">
+            <p className="text-gray-500">Aucune réparation trouvée</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Référence</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Client</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vélo</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Magasin</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Statut</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Priorité</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Coût estimé</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {filteredRepairs.map((repair) => (
+                  <tr key={repair.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      {repair.reference_number}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {repair.client?.name || `${repair.client?.first_name || ''} ${repair.client?.last_name || ''}`}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {repair.bike_brand} {repair.bike_model}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {storeLabels[repair.store]}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`px-2 py-1 text-xs font-semibold rounded-full ${statusConfig[repair.status]?.color || 'bg-gray-100 text-gray-800'}`}>
+                        {statusConfig[repair.status]?.label || repair.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`px-2 py-1 text-xs font-semibold rounded-full ${priorityConfig[repair.priority]?.color || 'bg-gray-100 text-gray-800'}`}>
+                        {priorityConfig[repair.priority]?.label || repair.priority}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {repair.created_at ? new Date(repair.created_at).toLocaleDateString('fr-FR') : '-'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {repair.estimated_cost ? `${repair.estimated_cost}€` : '-'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <div className="flex justify-end gap-2">
+                        <button
+                          onClick={() => {
+                            setSelectedRepair(repair);
+                            setShowDetailModal(true);
+                          }}
+                          className="text-blue-600 hover:text-blue-900"
+                          title="Voir les détails"
+                        >
+                          <EyeIcon className="w-5 h-5" />
+                        </button>
+                        <button
+                          onClick={() => openModal(repair)}
+                          className="text-indigo-600 hover:text-indigo-900"
+                          title="Modifier"
+                        >
+                          <PencilIcon className="w-5 h-5" />
+                        </button>
+                        <button
+                          onClick={() => handlePrint(repair.id)}
+                          className="text-green-600 hover:text-green-900"
+                          title="Imprimer"
+                        >
+                          <PrinterIcon className="w-5 h-5" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(repair.id)}
+                          className="text-red-600 hover:text-red-900"
+                          title="Supprimer"
+                        >
+                          <TrashIcon className="w-5 h-5" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
-      {/* Modal Create/Edit */}
+      {/* Create/Edit Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
@@ -396,54 +436,66 @@ export default function Repairs() {
                 {selectedRepair ? 'Modifier la réparation' : 'Nouvelle réparation'}
               </h2>
               <form onSubmit={handleSubmit}>
+                {/* Client et Magasin */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Client *</label>
-                    <select
-                      value={formData.client}
-                      onChange={(e) => setFormData({ ...formData, client: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    <Select
                       required
-                    >
-                      <option value="">Sélectionner un client</option>
-                      {clients.map(client => (
-                        <option key={client.id} value={client.id}>{client.name}</option>
-                      ))}
-                    </select>
+                      options={clients.map(client => ({
+                        value: client.id,
+                        label: `${client.first_name} ${client.last_name} - ${client.email}`
+                      }))}
+                      value={
+                        clients
+                          .map(client => ({
+                            value: client.id,
+                            label: `${client.first_name} ${client.last_name} - ${client.email}`
+                          }))
+                          .find(c => c.value === formData.client) || null
+                      }
+                      onChange={(selectedOption) => setFormData({ ...formData, client: selectedOption.value })}
+                      placeholder="Sélectionner un client"
+                      isClearable
+                    />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Magasin *</label>
                     <select
+                      required
                       value={formData.store}
                       onChange={(e) => setFormData({ ...formData, store: e.target.value })}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                      required
                     >
                       <option value="ville_avray">Ville d'Avray</option>
                       <option value="garches">Garches</option>
                     </select>
                   </div>
+                </div>
+
+                {/* Informations vélo */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Marque du vélo *</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Marque *</label>
                     <input
                       type="text"
+                      required
                       value={formData.bike_brand}
                       onChange={(e) => setFormData({ ...formData, bike_brand: e.target.value })}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                      required
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Modèle du vélo *</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Modèle *</label>
                     <input
                       type="text"
+                      required
                       value={formData.bike_model}
                       onChange={(e) => setFormData({ ...formData, bike_model: e.target.value })}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                      required
                     />
                   </div>
-                  <div className="md:col-span-2">
+                  <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Numéro de série</label>
                     <input
                       type="text"
@@ -452,28 +504,37 @@ export default function Repairs() {
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
-                  <div className="md:col-span-2">
+                </div>
+
+                {/* Description et Diagnostic */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                  <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Description du problème *</label>
                     <textarea
+                      required
                       value={formData.description}
                       onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                       rows="3"
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                      required
                     />
                   </div>
-                  <div className="md:col-span-2">
+                  <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Diagnostic</label>
                     <textarea
                       value={formData.diagnosis}
                       onChange={(e) => setFormData({ ...formData, diagnosis: e.target.value })}
-                      rows="2"
+                      rows="3"
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
+                </div>
+
+                {/* Statut et Priorité */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Statut</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Statut *</label>
                     <select
+                      required
                       value={formData.status}
                       onChange={(e) => setFormData({ ...formData, status: e.target.value })}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
@@ -487,8 +548,9 @@ export default function Repairs() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Priorité</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Priorité *</label>
                     <select
+                      required
                       value={formData.priority}
                       onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
@@ -500,10 +562,24 @@ export default function Repairs() {
                     </select>
                   </div>
                   <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Date d'achèvement estimée</label>
+                    <input
+                      type="date"
+                      value={formData.estimated_completion}
+                      onChange={(e) => setFormData({ ...formData, estimated_completion: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Coûts */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                  <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Coût estimé (€)</label>
                     <input
                       type="number"
                       step="0.01"
+                      min="0"
                       value={formData.estimated_cost}
                       onChange={(e) => setFormData({ ...formData, estimated_cost: e.target.value })}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
@@ -514,6 +590,7 @@ export default function Repairs() {
                     <input
                       type="number"
                       step="0.01"
+                      min="0"
                       value={formData.final_cost}
                       onChange={(e) => setFormData({ ...formData, final_cost: e.target.value })}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
@@ -521,7 +598,7 @@ export default function Repairs() {
                   </div>
                 </div>
 
-                {/* Parts Section */}
+                {/* Pièces nécessaires */}
                 <div className="mb-4">
                   <h3 className="text-lg font-semibold mb-3">Pièces nécessaires</h3>
                   <div className="flex gap-2 mb-3">
@@ -532,7 +609,9 @@ export default function Repairs() {
                     >
                       <option value="">Sélectionner un produit</option>
                       {products.map(product => (
-                        <option key={product.id} value={product.id}>{product.name} - {product.price}€</option>
+                        <option key={product.id} value={product.id}>
+                          {product.name} - {product.price}€
+                        </option>
                       ))}
                     </select>
                     <input
@@ -583,6 +662,7 @@ export default function Repairs() {
                   )}
                 </div>
 
+                {/* Notes */}
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-gray-700 mb-2">Notes</label>
                   <textarea
@@ -593,25 +673,28 @@ export default function Repairs() {
                   />
                 </div>
 
+                {/* Buttons */}
                 <div className="flex justify-end gap-3 mt-6">
                   <button
                     type="button"
                     onClick={() => setShowModal(false)}
                     className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                    disabled={loading}
                   >
                     Annuler
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                    disabled={loading}
                   >
-                    {selectedRepair ? 'Mettre à jour' : 'Créer'}
+                    {loading ? 'En cours...' : (selectedRepair ? 'Mettre à jour' : 'Créer')}
                   </button>
                 </div>
               </form>
             </div>
           </div>
-jardinage</div>
+        </div>
       )}
 
       {/* Detail Modal */}
@@ -628,7 +711,7 @@ jardinage</div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <p className="text-sm font-medium text-gray-500">Client</p>
-                    <p>{selectedRepair.client.name}</p>
+                    <p>{selectedRepair.client?.name || `${selectedRepair.client?.first_name} ${selectedRepair.client?.last_name}`}</p>
                   </div>
                   <div>
                     <p className="text-sm font-medium text-gray-500">Magasin</p>
@@ -642,8 +725,8 @@ jardinage</div>
                   </div>
                   <div>
                     <p className="text-sm font-medium text-gray-500">Statut</p>
-                    <span className={`inline-block px-2 py-1 text-xs font-semibold rounded-full ${statusConfig[selectedRepair.status].color}`}>
-                      {statusConfig[selectedRepair.status].label}
+                    <span className={`inline-block px-2 py-1 text-xs font-semibold rounded-full ${statusConfig[selectedRepair.status]?.color || 'bg-gray-100 text-gray-800'}`}>
+                      {statusConfig[selectedRepair.status]?.label || selectedRepair.status}
                     </span>
                   </div>
                 </div>
