@@ -8,9 +8,17 @@ class Repair(models.Model):
     STATUS_CHOICES = [
         ('pending', 'En attente'),
         ('in_progress', 'En cours'),
-        ('completed', 'Terminé'),
-        ('delivered', 'Livré'),
-        ('cancelled', 'Annulé'),
+        ('waiting_parts', 'Attente pièces'),
+        ('completed', 'Terminée'),
+        ('delivered', 'Livrée'),
+        ('cancelled', 'Annulée'),
+    ]
+    
+    PRIORITY_CHOICES = [
+        ('low', 'Basse'),
+        ('normal', 'Normale'),
+        ('high', 'Haute'),
+        ('urgent', 'Urgente'),
     ]
     
     STORE_CHOICES = [
@@ -18,36 +26,40 @@ class Repair(models.Model):
         ('garches', 'Garches'),
     ]
     
-    # Numéro de réparation auto-généré
-    repair_number = models.CharField(max_length=30, unique=True, editable=False)
+    # Numéro de référence auto-généré
+    reference_number = models.CharField(max_length=30, unique=True, editable=False)
     
     # Informations client
     client = models.ForeignKey(Client, on_delete=models.PROTECT, related_name='repairs')
-    client_phone = models.CharField(max_length=20)  # Redondance pour facilité
     
     # Informations vélo
-    bike_name = models.CharField(max_length=200, verbose_name="Nom/Modèle du vélo")
-    bike_brand = models.CharField(max_length=100, blank=True, verbose_name="Marque")
-    bike_serial_number = models.CharField(max_length=100, blank=True, verbose_name="Numéro de série")
-    
+    bike_brand = models.CharField(max_length=100, blank=True, default='', verbose_name="Marque")
+    bike_model = models.CharField(max_length=200, blank=True, default='', verbose_name="Modèle du vélo")
+    bike_serial_number = models.CharField(max_length=100, blank=True, default='', verbose_name="Numéro de série")
+
     # Détails réparation
-    description = models.TextField(verbose_name="Description du problème")
-    observations = models.TextField(blank=True, verbose_name="Observations")
+    description = models.TextField(blank=True, default='', verbose_name="Description du problème")
+    diagnosis = models.TextField(blank=True, verbose_name="Diagnostic")
+    notes = models.TextField(blank=True, verbose_name="Notes")
     
     # Dates
-    date_reception = models.DateField(verbose_name="Date de prise en charge")
-    date_estimated_delivery = models.DateField(verbose_name="Date de livraison estimée")
-    date_actual_delivery = models.DateField(null=True, blank=True, verbose_name="Date de livraison réelle")
+    created_date = models.DateTimeField(auto_now_add=True, verbose_name="Date de création")
+    estimated_completion = models.DateField(null=True, blank=True, verbose_name="Date de livraison estimée")
+    actual_completion = models.DateField(null=True, blank=True, verbose_name="Date de livraison réelle")
     
     # Informations gestion
     store = models.CharField(max_length=20, choices=STORE_CHOICES)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    priority = models.CharField(max_length=20, choices=PRIORITY_CHOICES, default='normal')
     assigned_to = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='assigned_repairs')
     
     # Coûts
     estimated_cost = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="Coût estimé")
     final_cost = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="Coût final")
     deposit_paid = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="Acompte versé")
+    
+    # Pièces nécessaires (JSON field pour flexibilité)
+    parts_needed = models.JSONField(default=list, blank=True, verbose_name="Pièces nécessaires")
     
     # Métadonnées
     created_by = models.ForeignKey(User, on_delete=models.PROTECT, related_name='created_repairs')
@@ -58,42 +70,45 @@ class Repair(models.Model):
         db_table = 'repairs'
         ordering = ['-created_at']
         indexes = [
-            models.Index(fields=['repair_number']),
+            models.Index(fields=['reference_number']),
             models.Index(fields=['status']),
-            models.Index(fields=['date_reception']),
+            models.Index(fields=['created_date']),
         ]
     
     def __str__(self):
-        return f"Réparation {self.repair_number} - {self.bike_name}"
+        return f"Réparation {self.reference_number} - {self.bike_brand} {self.bike_model}"
     
     def save(self, *args, **kwargs):
-        if not self.repair_number:
-            self.repair_number = self.generate_repair_number()
+        if not self.reference_number:
+            self.reference_number = self.generate_reference_number()
         super().save(*args, **kwargs)
     
-    def generate_repair_number(self):
+    def generate_reference_number(self):
         """
-        Génère un numéro de réparation au format:
-        RA04112025-000001 pour Ville d'Avray
-        RG04112025-000001 pour Garches
+        Génère un numéro de référence au format:
+        REP-VA-20251107-001 pour Ville d'Avray
+        REP-GA-20251107-001 pour Garches
         """
         from django.utils import timezone
+
         today = timezone.now()
-        date_str = today.strftime('%d%m%Y')
+        date_str = today.strftime('%Y%m%d')
         
-        prefix = 'RA' if self.store == 'ville_avray' else 'RG'
+        store_code = 'VA' if self.store == 'ville_avray' else 'GA'
+        prefix = f"REP-{store_code}-{date_str}"
         
         last_repair = Repair.objects.filter(
-            repair_number__startswith=f"{prefix}{date_str}"
-        ).order_by('-repair_number').first()
+            reference_number__startswith=prefix
+        ).order_by('-reference_number').first()
         
         if last_repair:
-            last_number = int(last_repair.repair_number.split('-')[1])
+            last_number = int(last_repair.reference_number.split('-')[-1])
             new_number = last_number + 1
         else:
             new_number = 1
         
-        return f"{prefix}{date_str}-{new_number:07d}"
+        return f"{prefix}-{new_number:03d}"
+    
 
 
 class RepairItem(models.Model):
