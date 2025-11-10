@@ -4,8 +4,9 @@ from . import views
 
 router = DefaultRouter()
 router.register(r'repairs', views.RepairViewSet, basename='repair')
-router.register(r'repair-items', views.RepairItemViewSet, basename='repair-item')
+#router.register(r'repair-items', views.RepairItemViewSet, basename='repair-item')
 
 urlpatterns = [
     path('', include(router.urls)),
+
 ]
