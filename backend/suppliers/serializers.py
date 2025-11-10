@@ -9,10 +9,10 @@ class SupplierSerializer(serializers.ModelSerializer):
 
 
 class PurchaseOrderItemSerializer(serializers.ModelSerializer):
-    # Ajout de champs calculés pour le frontend
+    # Champs calculés pour le frontend
     quantity = serializers.IntegerField(source='quantity_ordered', read_only=True)
     unit_price = serializers.DecimalField(source='unit_price_ht', max_digits=10, decimal_places=2, read_only=True)
-    
+
     class Meta:
         model = PurchaseOrderItem
         fields = '__all__'
@@ -25,28 +25,32 @@ class PurchaseOrderItemSerializer(serializers.ModelSerializer):
 class PurchaseOrderSerializer(serializers.ModelSerializer):
     items = PurchaseOrderItemSerializer(many=True, read_only=True)
     supplier_name = serializers.CharField(source='supplier.name', read_only=True)
-    
-    # Ajout des champs pour la compatibilité avec le frontend
+
+    # Champs de compatibilité frontend
     reference_number = serializers.CharField(source='purchase_order_number', read_only=True)
     total_amount = serializers.DecimalField(source='total_ttc', max_digits=10, decimal_places=2, read_only=True)
-    
-    # Détails du fournisseur pour l'affichage
+
+    # Détails du fournisseur
     supplier_details = serializers.SerializerMethodField()
-    
+
     class Meta:
         model = PurchaseOrder
         fields = '__all__'
-    
+
     def get_supplier_details(self, obj):
+        """Retourne les infos du fournisseur de manière sécurisée"""
+        supplier = obj.supplier
+        if not supplier:
+            return None
         return {
-            'id': obj.supplier.id,
-            'name': obj.supplier.name,
-            'email': obj.supplier.email,
-            'phone': obj.supplier.phone,
+            'id': supplier.id,
+            'name': supplier.name,
+            'email': supplier.email,
+            'phone': supplier.phone,
         }
-    
+
     def to_representation(self, instance):
-        """Personnaliser la représentation pour inclure les détails du fournisseur"""
+        """Ajoute les détails du fournisseur dans la réponse finale"""
         data = super().to_representation(instance)
-        data['supplier'] = self.get_supplier_details(instance)
+        data['supplier'] = data.pop('supplier_details', None)
         return data
