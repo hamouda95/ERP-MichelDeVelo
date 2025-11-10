@@ -4,6 +4,9 @@ from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 from .models import Repair, RepairItem
 from .serializers import RepairSerializer, RepairCreateSerializer, RepairItemSerializer
+from django.http import HttpResponse
+from reportlab.pdfgen import canvas
+import io
 
 
 class RepairViewSet(viewsets.ModelViewSet):
@@ -11,7 +14,7 @@ class RepairViewSet(viewsets.ModelViewSet):
     serializer_class = RepairSerializer
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['status', 'store', 'client']
-    search_fields = ['repair_number', 'bike_name', 'client__first_name', 'client__last_name']
+    search_fields = ['repair_number', 'bike_name', 'bike_brand', 'client__first_name', 'client__last_name']
     ordering_fields = ['created_at', 'date_reception', 'date_estimated_delivery']
     ordering = ['-created_at']
     
@@ -65,6 +68,74 @@ class RepairViewSet(viewsets.ModelViewSet):
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
+    '''@action(detail=True, methods=['get'])
+    def print(self, request, pk=None):
+        """Générer/télécharger le PDF de réparation"""
+        repair = self.get_object()
+        
+        # TODO: Implémenter la génération PDF
+        
+        return Response({
+            'message': 'PDF généré avec succès',
+            'repair_number': repair.repair_number
+        })
+    '''
+    @action(detail=True, methods=['get'])
+    def print(self, request, pk=None):
+        """Générer et renvoyer un PDF du devis"""
+        repair = self.get_object()
+
+        # Création d'un PDF en mémoire
+        buffer = io.BytesIO()
+        p = canvas.Canvas(buffer)
+        
+        # Contenu du PDF
+        p.setFont("Helvetica-Bold", 16)
+        p.drawString(100, 800, f"Devis n°{repair.reference_number}")
+        #p.setFont("Helvetica", 12)
+        #p.drawString(100, 780, f"Client : {quote.client}")
+        #p.drawString(100, 760, f"Magasin : {quote.store}")
+        #p.drawString(100, 740, f"Valide jusqu'au : {quote.valid_until}")
+        '''
+        y = 700
+        p.drawString(100, y, "Articles :")
+        for item in quote.items.all():
+            y -= 20
+            p.drawString(120, y, f"{item.product.name} - Qté : {item.quantity} - Prix HT : {item.unit_price_ht}€")
+        
+        y -= 40
+        p.drawString(100, y, f"Total HT : {quote.subtotal_ht}€")
+        y -= 20
+        p.drawString(100, y, f"TVA : {quote.total_tva}€")
+        y -= 20
+        p.drawString(100, y, f"Total TTC : {quote.total_ttc}€")
+'''
+        p.showPage()
+        p.save()
+
+        buffer.seek(0)
+        response = HttpResponse(buffer, content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="devis_{repair.reference_number}.pdf"'
+        return response
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
     @action(detail=False, methods=['get'])
     def statistics(self, request):
         """Statistiques des réparations"""
@@ -108,15 +179,3 @@ class RepairViewSet(viewsets.ModelViewSet):
             'total_revenue': float(total_revenue),
             'average_duration_days': round(avg_duration, 1)
         })
-
-
-class RepairItemViewSet(viewsets.ModelViewSet):
-    queryset = RepairItem.objects.all()
-    serializer_class = RepairItemSerializer
-    
-    def get_queryset(self):
-        queryset = super().get_queryset()
-        repair_id = self.request.query_params.get('repair')
-        if repair_id:
-            queryset = queryset.filter(repair_id=repair_id)
-        return queryset
