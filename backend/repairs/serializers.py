@@ -27,10 +27,11 @@ class RepairSerializer(serializers.ModelSerializer):
     def get_client(self, obj):
         return {
             'id': obj.client.id,
+            'first_name': obj.client.first_name,
+            'last_name': obj.client.last_name,
             'name': f"{obj.client.first_name} {obj.client.last_name}",
-            'full_name': f"{obj.client.first_name} {obj.client.last_name}",
             'email': obj.client.email,
-            'phone': obj.client.phone
+            'phone': obj.client.phone if hasattr(obj.client, 'phone') else ''
         }
 
 
