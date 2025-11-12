@@ -66,24 +66,25 @@ export const productsAPI = {
   }),
 };
 
+
 // ===== CATEGORIES API =====
-export const apicategories = {
-  getAll: async () => {
-    // Example: fetch all categories from your backend
-    const response = await fetch('/api/categories');
-    if (!response.ok) throw new Error('Failed to fetch categories');
-    return response.json();
-  },
+export const categoriesAPI = {
+  // Récupérer toutes les catégories avec filtres optionnels
+  getAll: (params) => api.get('/categories/', { params }),
 
-  getById: async (id) => {
-    // Example: fetch category by ID
-    const response = await fetch(`/api/categories/${id}`);
-    if (!response.ok) throw new Error(`Failed to fetch category with id ${id}`);
-    return response.json();
-  },
+  // Récupérer une catégorie par son ID
+  getById: (id) => api.get(`/categories/${id}/`),
 
-  // Add more category API methods as needed
+  // Créer une nouvelle catégorie
+  create: (data) => api.post('/categories/', data),
+
+  // Mettre à jour une catégorie
+  update: (id, data) => api.patch(`/categories/${id}/`, data),
+
+  // Supprimer une catégorie
+  delete: (id) => api.delete(`/categories/${id}/`),
 };
+
 
 // ===== CLIENTS API =====
 export const clientsAPI = {
