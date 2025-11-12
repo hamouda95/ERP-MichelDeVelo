@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import productsAPI from '../services/api';
+import { productsAPI, categoriesAPI } from '../services/api';
 import toast from 'react-hot-toast';
 import { 
   MagnifyingGlassIcon, 
@@ -41,7 +41,7 @@ function StatCard({ label, value, icon: Icon, color = "blue" }) {
 
 export default function Products() {
   const [products, setProducts] = useState([]);
- 
+  const [categories, setCategories] = useState([]);
   const [activeTab, setActiveTab] = useState('products'); // 'products' ou 'stock'
   const [viewMode, setViewMode] = useState('list');
   const [searchQuery, setSearchQuery] = useState('');
@@ -57,7 +57,7 @@ export default function Products() {
     productType: 'all',
     visibility: 'all',
     brand: 'all',
-    
+    category: 'all'
   });
 
   // Filtres pour l'onglet Stock
@@ -78,11 +78,29 @@ export default function Products() {
     }
   }, []);
 
+  const loadCategories = React.useCallback(async () => {
+    try {
+      // Assure-toi d'avoir un endpoint categoriesAPI dans ton api.js
+      const response = await categoriesAPI.getAll();
+      setCategories(response.data.results || response.data);
+      
+      // Pour l'instant, on extrait les catégories des produits
+      const uniqueCategories = [...new Set(products.map(p => p.category?.name).filter(Boolean))];
+      setCategories(uniqueCategories.map(name => ({ name })));
+    } catch (error) {
+      console.error('Erreur de chargement des catégories');
+    }
+  }, [products]);
+
   useEffect(() => {
     loadProducts();
   }, [loadProducts]);
 
- 
+  useEffect(() => {
+    if (products.length > 0) {
+      loadCategories();
+    }
+  }, [products, loadCategories]);
 
   // Calcul des statistiques
   const stats = {
@@ -123,7 +141,9 @@ export default function Products() {
       if (filters.brand !== 'all') {
         filtered = filtered.filter(p => p.brand === filters.brand);
       }
-      
+      if (filters.category !== 'all') {
+        filtered = filtered.filter(p => p.category?.name === filters.category);
+      }
     } else {
       // Filtres de l'onglet Stock
       if (stockFilters.stockLevel === 'out') {
@@ -351,11 +371,20 @@ export default function Products() {
                 ))}
               </select>
 
-              
+              <select
+                value={filters.category}
+                onChange={(e) => setFilters({...filters, category: e.target.value})}
+                className="px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="all">Toutes les catégories</option>
+                {categories.map(cat => (
+                  <option key={cat.name} value={cat.name}>{cat.name}</option>
+                ))}
+              </select>
 
-              {(filters.productType !== 'all' || filters.visibility !== 'all' || filters.brand !== 'all' ) && (
+              {(filters.productType !== 'all' || filters.visibility !== 'all' || filters.brand !== 'all' || filters.category !== 'all') && (
                 <button
-                  onClick={() => setFilters({ productType: 'all', visibility: 'all', brand: 'all' })}
+                  onClick={() => setFilters({ productType: 'all', visibility: 'all', brand: 'all', category: 'all' })}
                   className="text-sm text-blue-600 hover:text-blue-700 font-medium"
                 >
                   Réinitialiser
@@ -626,13 +655,13 @@ function ConfirmModal({ title, message, onConfirm, onCancel }) {
 // Modal d'ajout/édition de produit
 function ProductModal({ product, onClose, onSave }) {
   const [loading, setLoading] = useState(false);
-  
+  const [categories, setCategories] = useState([]);
   const [formData, setFormData] = useState({
     reference: product?.reference || '',
     name: product?.name || '',
     description: product?.description || '',
     product_type: product?.product_type || 'bike',
-    
+    category: product?.category?.id || '',
     price_ttc: product?.price_ttc || '',
     tva_rate: product?.tva_rate || 20,
     price_ht: product?.price_ht || '',
@@ -647,7 +676,22 @@ function ProductModal({ product, onClose, onSave }) {
     is_active: product?.is_active ?? true
   });
 
- 
+  // Charger les catégories au montage du composant
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        // Si tu as un endpoint pour les catégories:
+        const response = await categoriesAPI.getAll();
+        setCategories(response.data.results || response.data);
+        
+        // Sinon, tu peux laisser vide pour l'instant
+        setCategories([]);
+      } catch (error) {
+        console.error('Erreur de chargement des catégories');
+      }
+    };
+    loadCategories();
+  }, []);
 
   // Calcul automatique du prix TTC quand HT ou TVA change
   useEffect(() => {
