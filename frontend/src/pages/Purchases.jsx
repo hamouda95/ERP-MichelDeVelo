@@ -1,668 +1,681 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  ShoppingCartIcon, 
-  TruckIcon, 
-  CheckCircleIcon,
-  XCircleIcon,
-  MagnifyingGlassIcon,
+import React, { useState, useEffect } from "react";
+import {
   PlusIcon,
-  DocumentTextIcon,
-  ArchiveBoxIcon
-} from '@heroicons/react/24/outline';
-import api from '../services/api';
+  MagnifyingGlassIcon,
+  PencilIcon,
+  TrashIcon,
+  EyeIcon,
+  CheckCircleIcon,
+} from "@heroicons/react/24/outline";
+import api from "../services/api";
 
 export default function Purchases() {
-  const [purchases, setPurchases] = useState([]);
-  const [suppliers, setSuppliers] = useState([]);
+  const [purchaseOrders, setPurchaseOrders] = useState([]);
   const [products, setProducts] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [showNewPurchaseModal, setShowNewPurchaseModal] = useState(false);
+  const [suppliers, setSuppliers] = useState([]);
+  const [showOrderModal, setShowOrderModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
-  const [selectedPurchase, setSelectedPurchase] = useState(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterStatus, setFilterStatus] = useState('all');
-  
-  // Formulaire nouvelle commande
-  const [newPurchase, setNewPurchase] = useState({
-    supplier: '',
-    store: 'ville_avray',
-    expected_delivery_date: '',
-    notes: '',
-    items: []
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterStatus, setFilterStatus] = useState("all");
+  const [filterStore, setFilterStore] = useState("all");
+  const [notification, setNotification] = useState({
+    show: false,
+    message: "",
+    type: "success",
   });
 
-  // Item en cours d'ajout
-  const [currentItem, setCurrentItem] = useState({
-    product: '',
-    product_reference: '',
-    product_name: '',
-    quantity_ordered: 1,
-    unit_price_ht: 0,
-    tva_rate: 20
+  const [orderFormData, setOrderFormData] = useState({
+    supplier: "",
+    store: "ville_avray",
+    expected_delivery_date: "",
+    status: "draft",
+    items: [],
+    notes: "",
+    shipping_cost: 0,
   });
 
-  // Charger les données
+  const [newItem, setNewItem] = useState({
+    product: "",
+    quantity: 1,
+    unit_price: 0,
+  });
+
+  const orderStatusConfig = {
+    draft: { label: "Brouillon", color: "bg-gray-100 text-gray-800" },
+    sent: { label: "Envoyé", color: "bg-blue-100 text-blue-800" },
+    confirmed: { label: "Confirmé", color: "bg-indigo-100 text-indigo-800" },
+    partial: { label: "Partiellement reçu", color: "bg-yellow-100 text-yellow-800" },
+    received: { label: "Reçu", color: "bg-green-100 text-green-800" },
+    cancelled: { label: "Annulé", color: "bg-red-100 text-red-800" },
+  };
+
+  const storeLabels = {
+    ville_avray: "Ville d'Avray",
+    garches: "Garches",
+  };
+
+  // Fetch data
   useEffect(() => {
-    loadPurchases();
-    loadSuppliers();
-    loadProducts();
+    fetchPurchaseOrders();
+    fetchSuppliers();
+    fetchProducts();
   }, []);
 
-  const loadPurchases = async () => {
-    setLoading(true);
+  const fetchPurchaseOrders = async () => {
     try {
-      const response = await api.get('/suppliers/purchase-orders/');
-      const data = response.data;
-      setPurchases(Array.isArray(data) ? data : data.results || []);
-    } catch (error) {
-      console.error('Erreur:', error);
+      const res = await api.get("/suppliers/purchase-orders/");
+      const data = res.data;
+      setPurchaseOrders(Array.isArray(data) ? data : data.results || []);
+    } catch (err) {
+      showNotification("Erreur lors du chargement des commandes", "error");
     }
-    setLoading(false);
   };
 
-  const loadSuppliers = async () => {
+  const fetchSuppliers = async () => {
     try {
-      const response = await api.get('/suppliers/suppliers/');
-      const data = response.data;
+      const res = await api.get("/suppliers/suppliers/");
+      const data = res.data;
       setSuppliers(Array.isArray(data) ? data : data.results || []);
-    } catch (error) {
-      console.error('Erreur:', error);
+    } catch (err) {
+      console.error(err);
     }
   };
 
-  const loadProducts = async () => {
+  const fetchProducts = async () => {
     try {
-      const response = await api.get('/products/');
-      const data = response.data;
+      const res = await api.get("/products/");
+      const data = res.data;
       setProducts(Array.isArray(data) ? data : data.results || []);
-    } catch (error) {
-      console.error('Erreur:', error);
+    } catch (err) {
+      console.error(err);
     }
   };
 
-  // Calculs automatiques
-  const calculateItemTotal = (item) => {
-    const ht = item.quantity_ordered * item.unit_price_ht;
-    const tva = ht * (item.tva_rate / 100);
-    const ttc = ht + tva;
-    return { ht, tva, ttc };
+  const showNotification = (message, type = "success") => {
+    setNotification({ show: true, message, type });
+    setTimeout(
+      () => setNotification({ show: false, message: "", type: "success" }),
+      3000
+    );
   };
 
-  const calculatePurchaseTotal = (items) => {
-    let total_ht = 0;
-    let total_tva = 0;
-    
-    items.forEach(item => {
-      const itemTotal = calculateItemTotal(item);
-      total_ht += itemTotal.ht;
-      total_tva += itemTotal.tva;
-    });
-    
-    return {
-      total_ht: total_ht.toFixed(2),
-      total_tva: total_tva.toFixed(2),
-      total_ttc: (total_ht + total_tva).toFixed(2)
-    };
-  };
-
-  // Ajouter un article à la commande
-  const addItemToPurchase = () => {
-    if (!currentItem.product || currentItem.quantity_ordered <= 0) {
-      alert('Veuillez sélectionner un produit et une quantité valide');
-      return;
+  // Modals
+  const openOrderModal = (order = null) => {
+    if (order) {
+      setSelectedOrder(order);
+      setOrderFormData({
+        supplier: order.supplier?.id || order.supplier,
+        store: order.store,
+        expected_delivery_date: order.expected_delivery_date || "",
+        status: order.status,
+        items:
+          order.items?.map((i) => ({
+            product: i.product,
+            product_name: i.product_name,
+            product_reference: i.product_reference,
+            quantity: i.quantity_ordered,
+            unit_price: parseFloat(i.unit_price_ht),
+            tva_rate: parseFloat(i.tva_rate || 20),
+          })) || [],
+        notes: order.notes || "",
+        shipping_cost: parseFloat(order.shipping_cost || 0),
+      });
+    } else {
+      setSelectedOrder(null);
+      setOrderFormData({
+        supplier: "",
+        store: "ville_avray",
+        expected_delivery_date: "",
+        status: "draft",
+        items: [],
+        notes: "",
+        shipping_cost: 0,
+      });
     }
-
-    const product = products.find(p => p.id === parseInt(currentItem.product));
-    const newItem = {
-      product: parseInt(currentItem.product),
-      product_reference: product.reference,
-      product_name: product.name,
-      quantity_ordered: currentItem.quantity_ordered,
-      unit_price_ht: parseFloat(currentItem.unit_price_ht),
-      tva_rate: parseFloat(currentItem.tva_rate)
-    };
-
-    setNewPurchase({
-      ...newPurchase,
-      items: [...newPurchase.items, newItem]
-    });
-
-    // Réinitialiser le formulaire d'article
-    setCurrentItem({
-      product: '',
-      product_reference: '',
-      product_name: '',
-      quantity_ordered: 1,
-      unit_price_ht: 0,
-      tva_rate: 20
-    });
+    setShowOrderModal(true);
   };
 
-  // Retirer un article
-  const removeItemFromPurchase = (index) => {
-    const updatedItems = newPurchase.items.filter((_, i) => i !== index);
-    setNewPurchase({ ...newPurchase, items: updatedItems });
-  };
-
-  // Créer la commande
-  const createPurchase = async () => {
-    if (!newPurchase.supplier || newPurchase.items.length === 0) {
-      alert('Veuillez sélectionner un fournisseur et ajouter au moins un article');
-      return;
-    }
-
+  const handleSubmitOrder = async (e) => {
+    e.preventDefault();
     try {
-      await api.post('/suppliers/purchase-orders/', newPurchase);
-      alert('Commande créée avec succès !');
-      loadPurchases();
-      setShowNewPurchaseModal(false);
-      resetNewPurchaseForm();
-    } catch (error) {
-      console.error('Erreur:', error);
-      alert('Erreur lors de la création de la commande');
+      const payload = {
+        supplier: orderFormData.supplier,
+        store: orderFormData.store,
+        expected_delivery_date: orderFormData.expected_delivery_date,
+        status: orderFormData.status,
+        notes: orderFormData.notes,
+        shipping_cost: parseFloat(orderFormData.shipping_cost || 0),
+        items: orderFormData.items.map((i) => ({
+          product: i.product,
+          quantity_ordered: i.quantity,
+          unit_price_ht: parseFloat(i.unit_price),
+          tva_rate: parseFloat(i.tva_rate || 20),
+        })),
+      };
+
+      if (selectedOrder) {
+        await api.put(`/suppliers/purchase-orders/${selectedOrder.id}/`, payload);
+        showNotification("Commande mise à jour avec succès");
+      } else {
+        await api.post("/suppliers/purchase-orders/", payload);
+        showNotification("Commande créée avec succès");
+      }
+      fetchPurchaseOrders();
+      setShowOrderModal(false);
+    } catch (err) {
+      console.error(err);
+      showNotification("Erreur lors de la sauvegarde", "error");
     }
   };
 
-  const resetNewPurchaseForm = () => {
-    setNewPurchase({
-      supplier: '',
-      store: 'ville_avray',
-      expected_delivery_date: '',
-      notes: '',
-      items: []
-    });
-  };
-
-  // Marquer comme reçu
-  const markAsReceived = async (purchaseId) => {
-    if (window.confirm('Confirmer la réception de cette commande ? Le stock sera mis à jour.')) {
+  const handleDeleteOrder = async (id) => {
+    if (window.confirm("Supprimer cette commande ?")) {
       try {
-        await api.post(`/suppliers/purchase-orders/${purchaseId}/receive_items/`, {
-          items: [] // Le backend gère la réception complète
-        });
-        alert('Commande marquée comme reçue ! Le stock a été mis à jour.');
-        loadPurchases();
-      } catch (error) {
-        console.error('Erreur:', error);
-        alert('Erreur lors de la réception');
+        await api.delete(`/suppliers/purchase-orders/${id}/`);
+        showNotification("Commande supprimée");
+        fetchPurchaseOrders();
+      } catch {
+        showNotification("Erreur lors de la suppression", "error");
       }
     }
   };
 
-  // Filtrer les commandes
-  const filteredPurchases = purchases.filter(p => {
-    const matchSearch = p.purchase_order_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                       p.supplier?.name?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchStatus = filterStatus === 'all' || p.status === filterStatus;
-    return matchSearch && matchStatus;
-  });
-
-  // Badges de statut
-  const getStatusBadge = (status) => {
-    const badges = {
-      draft: { class: 'bg-gray-100 text-gray-800 border-gray-300', label: 'Brouillon', icon: '📝' },
-      sent: { class: 'bg-blue-100 text-blue-800 border-blue-300', label: 'Envoyé', icon: '📤' },
-      confirmed: { class: 'bg-indigo-100 text-indigo-800 border-indigo-300', label: 'Confirmé', icon: '✔️' },
-      partial: { class: 'bg-yellow-100 text-yellow-800 border-yellow-300', label: 'Partiel', icon: '⏳' },
-      received: { class: 'bg-green-100 text-green-800 border-green-300', label: 'Reçu', icon: '✅' },
-      cancelled: { class: 'bg-red-100 text-red-800 border-red-300', label: 'Annulé', icon: '❌' }
-    };
-    return badges[status] || badges.draft;
+  const handleMarkAsReceived = async (id) => {
+    if (window.confirm("Marquer cette commande comme reçue ?")) {
+      try {
+        await api.post(`/suppliers/purchase-orders/${id}/receive_items/`, { items: [] });
+        showNotification("Commande marquée comme reçue");
+        fetchPurchaseOrders();
+      } catch {
+        showNotification("Erreur lors de la réception", "error");
+      }
+    }
   };
 
-  const totals = newPurchase.items.length > 0 ? calculatePurchaseTotal(newPurchase.items) : null;
+  const handleAddItem = () => {
+    if (!newItem.product) return showNotification("Choisissez un produit", "error");
+    const product = products.find((p) => p.id === parseInt(newItem.product));
+    setOrderFormData({
+      ...orderFormData,
+      items: [
+        ...orderFormData.items,
+        {
+          product: product.id,
+          product_name: product.name,
+          product_reference: product.reference,
+          quantity: parseInt(newItem.quantity),
+          unit_price: parseFloat(newItem.unit_price),
+          tva_rate: 20,
+        },
+      ],
+    });
+    setNewItem({ product: "", quantity: 1, unit_price: 0 });
+  };
+
+  const handleRemoveItem = (index) => {
+    setOrderFormData({
+      ...orderFormData,
+      items: orderFormData.items.filter((_, i) => i !== index),
+    });
+  };
+
+  const calculateOrderTotal = () => {
+    const itemsTotal = orderFormData.items.reduce(
+      (sum, i) => sum + i.quantity * i.unit_price,
+      0
+    );
+    return itemsTotal + parseFloat(orderFormData.shipping_cost || 0);
+  };
+
+  const filteredOrders = purchaseOrders.filter((order) => {
+    const matchesSearch =
+      order.purchase_order_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      order.supplier_name?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = filterStatus === "all" || order.status === filterStatus;
+    const matchesStore = filterStore === "all" || order.store === filterStore;
+    return matchesSearch && matchesStatus && matchesStore;
+  });
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-blue-50">
-      <div className="p-6 max-w-7xl mx-auto">
-        {/* En-tête */}
-        <div className="mb-8">
-          <div className="flex items-center gap-4 mb-3">
-            <div className="p-3 bg-gradient-to-br from-green-500 to-blue-600 rounded-xl shadow-lg">
-              <ShoppingCartIcon className="h-8 w-8 text-white" />
-            </div>
-            <div>
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent">
-                Achats Fournisseurs
-              </h1>
-              <p className="text-gray-600 mt-1">Gérez vos commandes et mises à jour de stock</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Statistiques */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white p-5 rounded-2xl shadow-lg border-l-4 border-yellow-500 hover:shadow-xl transition-shadow">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-sm font-medium text-gray-600 mb-1">Brouillon</div>
-                <div className="text-3xl font-bold text-yellow-600">
-                  {purchases.filter(p => p.status === 'draft').length}
-                </div>
-              </div>
-              <div className="p-3 bg-yellow-100 rounded-xl">
-                <DocumentTextIcon className="h-6 w-6 text-yellow-600" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white p-5 rounded-2xl shadow-lg border-l-4 border-blue-500 hover:shadow-xl transition-shadow">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-sm font-medium text-gray-600 mb-1">En cours</div>
-                <div className="text-3xl font-bold text-blue-600">
-                  {purchases.filter(p => ['sent', 'confirmed'].includes(p.status)).length}
-                </div>
-              </div>
-              <div className="p-3 bg-blue-100 rounded-xl">
-                <TruckIcon className="h-6 w-6 text-blue-600" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white p-5 rounded-2xl shadow-lg border-l-4 border-green-500 hover:shadow-xl transition-shadow">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-sm font-medium text-gray-600 mb-1">Reçues</div>
-                <div className="text-3xl font-bold text-green-600">
-                  {purchases.filter(p => p.status === 'received').length}
-                </div>
-              </div>
-              <div className="p-3 bg-green-100 rounded-xl">
-                <CheckCircleIcon className="h-6 w-6 text-green-600" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white p-5 rounded-2xl shadow-lg border-l-4 border-purple-500 hover:shadow-xl transition-shadow">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-sm font-medium text-gray-600 mb-1">Montant total</div>
-                <div className="text-3xl font-bold text-purple-600">
-                  {purchases.filter(p => p.status === 'received')
-                    .reduce((sum, p) => sum + parseFloat(p.total_ttc || 0), 0)
-                    .toFixed(2)}€
-                </div>
-              </div>
-              <div className="p-3 bg-purple-100 rounded-xl">
-                <svg className="h-6 w-6 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Barre d'outils */}
-        <div className="bg-white rounded-2xl shadow-lg p-4 mb-6 border border-gray-100">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center gap-3 flex-1">
-              <div className="relative flex-1 max-w-md">
-                <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Rechercher une commande..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none"
-                />
-              </div>
-
-              <select
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
-                className="px-4 py-2 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none font-medium"
-              >
-                <option value="all">Tous les statuts</option>
-                <option value="draft">Brouillon</option>
-                <option value="sent">Envoyé</option>
-                <option value="confirmed">Confirmé</option>
-                <option value="partial">Partiel</option>
-                <option value="received">Reçues</option>
-                <option value="cancelled">Annulées</option>
-              </select>
-            </div>
-
-            <button
-              onClick={() => setShowNewPurchaseModal(true)}
-              className="px-6 py-2.5 bg-gradient-to-r from-green-600 to-blue-600 text-white rounded-xl hover:shadow-lg transition-all font-medium flex items-center gap-2"
-            >
-              <PlusIcon className="h-5 w-5" />
-              Nouvelle commande
-            </button>
-          </div>
-        </div>
-
-        {/* Liste des commandes */}
-        <div className="bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-100">
-          <table className="w-full">
-            <thead className="bg-gradient-to-r from-green-600 to-blue-600 text-white">
-              <tr>
-                <th className="px-6 py-4 text-left font-bold">Référence</th>
-                <th className="px-6 py-4 text-left font-bold">Fournisseur</th>
-                <th className="px-6 py-4 text-left font-bold">Date commande</th>
-                <th className="px-6 py-4 text-left font-bold">Date prévue</th>
-                <th className="px-6 py-4 text-left font-bold">Statut</th>
-                <th className="px-6 py-4 text-right font-bold">Montant HT</th>
-                <th className="px-6 py-4 text-right font-bold">TVA</th>
-                <th className="px-6 py-4 text-right font-bold">Total TTC</th>
-                <th className="px-6 py-4 text-center font-bold">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {filteredPurchases.map((purchase) => {
-                const statusBadge = getStatusBadge(purchase.status);
-                return (
-                  <tr key={purchase.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4">
-                      <div className="font-bold text-gray-900">{purchase.purchase_order_number}</div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="text-gray-700">{purchase.supplier?.name || 'N/A'}</div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="text-gray-600">
-                        {new Date(purchase.order_date).toLocaleDateString('fr-FR')}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="text-gray-600">
-                        {purchase.expected_delivery_date 
-                          ? new Date(purchase.expected_delivery_date).toLocaleDateString('fr-FR')
-                          : '-'}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold border ${statusBadge.class}`}>
-                        <span>{statusBadge.icon}</span>
-                        {statusBadge.label}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-right font-semibold text-gray-900">
-                      {parseFloat(purchase.subtotal_ht || 0).toFixed(2)}€
-                    </td>
-                    <td className="px-6 py-4 text-right font-semibold text-gray-600">
-                      {parseFloat(purchase.total_tva || 0).toFixed(2)}€
-                    </td>
-                    <td className="px-6 py-4 text-right font-bold text-green-600">
-                      {parseFloat(purchase.total_ttc || 0).toFixed(2)}€
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center justify-center gap-2">
-                        <button
-                          onClick={() => {
-                            setSelectedPurchase(purchase);
-                            setShowDetailModal(true);
-                          }}
-                          className="p-2 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors"
-                          title="Voir détails"
-                        >
-                          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                          </svg>
-                        </button>
-                        {!['received', 'cancelled'].includes(purchase.status) && (
-                          <button
-                            onClick={() => markAsReceived(purchase.id)}
-                            className="p-2 text-green-600 hover:bg-green-100 rounded-lg transition-colors"
-                            title="Marquer comme reçu"
-                          >
-                            <CheckCircleIcon className="h-5 w-5" />
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-
-          {filteredPurchases.length === 0 && (
-            <div className="text-center py-12 text-gray-500">
-              <ArchiveBoxIcon className="h-16 w-16 mx-auto mb-4 opacity-50" />
-              <p className="text-lg font-medium">Aucune commande trouvée</p>
-            </div>
-          )}
-        </div>
+    <div className="p-6">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-gray-900">Commandes d'achat</h1>
+        <p className="text-gray-600">Gérez vos bons de commande fournisseurs</p>
       </div>
 
-      {/* Modal nouvelle commande */}
-      {showNewPurchaseModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-3xl max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
-            <div className="p-8">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-4">
-                  <div className="p-3 bg-gradient-to-br from-green-500 to-blue-600 rounded-2xl shadow-lg">
-                    <ShoppingCartIcon className="h-7 w-7 text-white" />
-                  </div>
-                  <div>
-                    <h2 className="text-3xl font-bold text-gray-900">Nouvelle commande fournisseur</h2>
-                    <p className="text-gray-500 mt-1">Ajoutez des articles pour créer votre commande</p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => {
-                    setShowNewPurchaseModal(false);
-                    resetNewPurchaseForm();
-                  }}
-                  className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl p-2 transition-all"
-                >
-                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
+      {/* Filters */}
+      <div className="flex gap-4 mb-6">
+        <div className="flex-1 relative">
+          <MagnifyingGlassIcon className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Rechercher une commande..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+        <select
+          value={filterStatus}
+          onChange={(e) => setFilterStatus(e.target.value)}
+          className="px-4 py-2 border border-gray-300 rounded-lg"
+        >
+          <option value="all">Tous les statuts</option>
+          {Object.entries(orderStatusConfig).map(([key, c]) => (
+            <option key={key} value={key}>
+              {c.label}
+            </option>
+          ))}
+        </select>
+        <select
+          value={filterStore}
+          onChange={(e) => setFilterStore(e.target.value)}
+          className="px-4 py-2 border border-gray-300 rounded-lg"
+        >
+          <option value="all">Tous les magasins</option>
+          {Object.entries(storeLabels).map(([key, label]) => (
+            <option key={key} value={key}>
+              {label}
+            </option>
+          ))}
+        </select>
+        <button
+          onClick={() => openOrderModal()}
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+        >
+          <PlusIcon className="w-5 h-5" />
+          Nouvelle commande
+        </button>
+      </div>
 
-              {/* Informations générales */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-2">Fournisseur *</label>
-                  <select
-                    value={newPurchase.supplier}
-                    onChange={(e) => setNewPurchase({ ...newPurchase, supplier: e.target.value })}
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none"
-                    required
+      {/* Table */}
+      <div className="bg-white rounded-lg shadow overflow-hidden">
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Référence</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fournisseur</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Magasin</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Livraison</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Montant</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Statut</th>
+              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {filteredOrders.map((order) => (
+              <tr key={order.id} className="hover:bg-gray-50">
+                <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                  {order.purchase_order_number || order.reference_number}
+                </td>
+                <td className="px-6 py-4 text-sm text-gray-500">{order.supplier_name}</td>
+                <td className="px-6 py-4 text-sm text-gray-500">{storeLabels[order.store]}</td>
+                <td className="px-6 py-4 text-sm text-gray-500">
+                  {new Date(order.created_at).toLocaleDateString("fr-FR")}
+                </td>
+                <td className="px-6 py-4 text-sm text-gray-500">
+                  {order.expected_delivery_date
+                    ? new Date(order.expected_delivery_date).toLocaleDateString("fr-FR")
+                    : "-"}
+                </td>
+                <td className="px-6 py-4 text-sm font-semibold text-gray-900">
+                  {parseFloat(order.total_ttc || 0).toFixed(2)}€
+                </td>
+                <td className="px-6 py-4">
+                  <span
+                    className={`px-2 py-1 text-xs font-medium rounded-full ${
+                      orderStatusConfig[order.status]?.color || "bg-gray-100 text-gray-800"
+                    }`}
                   >
-                    <option value="">Sélectionner un fournisseur</option>
-                    {suppliers.map(s => (
-                      <option key={s.id} value={s.id}>{s.name}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-2">Magasin *</label>
-                  <select
-                    value={newPurchase.store}
-                    onChange={(e) => setNewPurchase({ ...newPurchase, store: e.target.value })}
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none"
-                    required
+                    {orderStatusConfig[order.status]?.label || order.status}
+                  </span>
+                </td>
+                <td className="px-6 py-4 text-right flex justify-end gap-2">
+                  <button
+                    onClick={() => {
+                      setSelectedOrder(order);
+                      setShowDetailModal(true);
+                    }}
+                    className="text-blue-600 hover:text-blue-900"
                   >
-                    <option value="ville_avray">Ville d'Avray</option>
-                    <option value="garches">Garches</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-2">Date de livraison prévue</label>
-                  <input
-                    type="date"
-                    value={newPurchase.expected_delivery_date}
-                    onChange={(e) => setNewPurchase({ ...newPurchase, expected_delivery_date: e.target.value })}
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-2">Notes</label>
-                  <input
-                    type="text"
-                    value={newPurchase.notes}
-                    onChange={(e) => setNewPurchase({ ...newPurchase, notes: e.target.value })}
-                    placeholder="Notes optionnelles"
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              {/* Ajout d'articles */}
-              <div className="border-t-2 border-gray-100 pt-6 mb-6">
-                <h3 className="text-xl font-bold text-gray-900 mb-4">Ajouter un article</h3>
-                <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-4">
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Produit *</label>
-                    <select
-                      value={currentItem.product}
-                      onChange={(e) => {
-                        const product = products.find(p => p.id === parseInt(e.target.value));
-                        setCurrentItem({
-                          ...currentItem,
-                          product: e.target.value,
-                          unit_price_ht: product ? parseFloat(product.price_ht) : 0
-                        });
-                      }}
-                      className="w-full px-4 py-2 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none"
+                    <EyeIcon className="w-5 h-5" />
+                  </button>
+                  <button
+                    onClick={() => openOrderModal(order)}
+                    className="text-indigo-600 hover:text-indigo-900"
+                  >
+                    <PencilIcon className="w-5 h-5" />
+                  </button>
+                  <button
+                    onClick={() => handleDeleteOrder(order.id)}
+                    className="text-red-600 hover:text-red-900"
+                  >
+                    <TrashIcon className="w-5 h-5" />
+                  </button>
+                  {order.status !== "received" && (
+                    <button
+                      onClick={() => handleMarkAsReceived(order.id)}
+                      className="text-green-600 hover:text-green-800"
                     >
-                      <option value="">Choisir un produit</option>
-                      {products.map(p => (
-                        <option key={p.id} value={p.id}>{p.name} - {parseFloat(p.price_ht).toFixed(2)}€ HT</option>
+                      <CheckCircleIcon className="w-5 h-5" />
+                    </button>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Order Modal */}
+      {showOrderModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <h2 className="text-2xl font-bold mb-6">
+                {selectedOrder ? 'Modifier la commande' : 'Nouvelle commande'}
+              </h2>
+              <form onSubmit={handleSubmitOrder}>
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Fournisseur *</label>
+                    <select
+                      required
+                      value={orderFormData.supplier}
+                      onChange={(e) => setOrderFormData({ ...orderFormData, supplier: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">Sélectionner un fournisseur</option>
+                      {suppliers.map((supplier) => (
+                        <option key={supplier.id} value={supplier.id}>
+                          {supplier.name}
+                        </option>
                       ))}
                     </select>
                   </div>
-
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Quantité *</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Magasin *</label>
+                    <select
+                      required
+                      value={orderFormData.store}
+                      onChange={(e) => setOrderFormData({ ...orderFormData, store: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    >
+                      {Object.entries(storeLabels).map(([key, label]) => (
+                        <option key={key} value={key}>{label}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Date de livraison prévue *
+                    </label>
                     <input
-                      type="number"
-                      min="1"
-                      value={currentItem.quantity_ordered}
-                      onChange={(e) => setCurrentItem({ ...currentItem, quantity_ordered: parseInt(e.target.value) || 1 })}
-                      className="w-full px-4 py-2 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none"
+                      type="date"
+                      required
+                      value={orderFormData.expected_delivery_date}
+                      onChange={(e) => setOrderFormData({ ...orderFormData, expected_delivery_date: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
-
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Prix HT *</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Frais de port (€)</label>
                     <input
                       type="number"
                       step="0.01"
-                      value={currentItem.unit_price_ht}
-                      onChange={(e) => setCurrentItem({ ...currentItem, unit_price_ht: parseFloat(e.target.value) || 0 })}
-                      className="w-full px-4 py-2 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none"
+                      value={orderFormData.shipping_cost}
+                      onChange={(e) => setOrderFormData({ ...orderFormData, shipping_cost: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">TVA %</label>
-                    <input
-                      type="number"
-                      step="0.1"
-                      value={currentItem.tva_rate}
-                      onChange={(e) => setCurrentItem({ ...currentItem, tva_rate: parseFloat(e.target.value) || 0 })}
-                      className="w-full px-4 py-2 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none"
-                    />
-                  </div>
-
-                  <div className="flex items-end">
-                    <button
-                      type="button"
-                      onClick={addItemToPurchase}
-                      className="w-full px-6 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-medium flex items-center justify-center gap-2"
-                    >
-                      <PlusIcon className="h-5 w-5" />
-                      Ajouter
-                    </button>
                   </div>
                 </div>
-              </div>
 
-              {/* Liste des articles ajoutés */}
-              {newPurchase.items.length > 0 && (
-                <div className="border-t-2 border-gray-100 pt-6">
-                  <h3 className="text-xl font-bold text-gray-900 mb-4">Articles de la commande</h3>
-                  <div className="bg-gray-50 rounded-2xl p-4 mb-4">
-                    <table className="w-full">
-                      <thead>
-                        <tr className="border-b border-gray-200">
-                          <th className="px-4 py-2 text-left text-sm font-bold text-gray-700">Produit</th>
-                          <th className="px-4 py-2 text-center text-sm font-bold text-gray-700">Qté</th>
-                          <th className="px-4 py-2 text-right text-sm font-bold text-gray-700">Prix HT</th>
-                          <th className="px-4 py-2 text-center text-sm font-bold text-gray-700">TVA</th>
-                          <th className="px-4 py-2 text-right text-sm font-bold text-gray-700">Total HT</th>
-                          <th className="px-4 py-2 text-right text-sm font-bold text-gray-700">Total TTC</th>
-                          <th className="px-4 py-2"></th>
+                {/* Articles */}
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Articles</label>
+                  
+                  <div className="bg-gray-50 p-4 rounded-lg mb-4">
+                    <div className="grid grid-cols-4 gap-3">
+                      <select
+                        value={newItem.product}
+                        onChange={(e) => {
+                          const product = products.find(p => p.id === parseInt(e.target.value));
+                          setNewItem({
+                            ...newItem,
+                            product: e.target.value,
+                            unit_price: product?.purchase_price || 0
+                          });
+                        }}
+                        className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="">Sélectionner un produit</option>
+                        {products.map((product) => (
+                          <option key={product.id} value={product.id}>
+                            {product.name} ({product.reference})
+                          </option>
+                        ))}
+                      </select>
+                      <input
+                        type="number"
+                        min="1"
+                        value={newItem.quantity}
+                        onChange={(e) => setNewItem({ ...newItem, quantity: e.target.value })}
+                        placeholder="Quantité"
+                        className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      />
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={newItem.unit_price}
+                        onChange={(e) => setNewItem({ ...newItem, unit_price: e.target.value })}
+                        placeholder="Prix unitaire"
+                        className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddItem}
+                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                      >
+                        Ajouter
+                      </button>
+                    </div>
+                  </div>
+
+                  {orderFormData.items.length > 0 && (
+                    <div className="border border-gray-200 rounded-lg overflow-hidden">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Produit</th>
+                            <th className="px-4 py-2 text-right text-xs font-medium text-gray-500">Quantité</th>
+                            <th className="px-4 py-2 text-right text-xs font-medium text-gray-500">Prix unitaire</th>
+                            <th className="px-4 py-2 text-right text-xs font-medium text-gray-500">Total</th>
+                            <th className="px-4 py-2"></th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {orderFormData.items.map((item, index) => {
+                            const quantity = item.quantity || item.quantity_ordered;
+                            const price = item.unit_price || item.unit_price_ht;
+                            return (
+                              <tr key={index}>
+                                <td className="px-4 py-2 text-sm">{item.product_name}</td>
+                                <td className="px-4 py-2 text-sm text-right">{quantity}</td>
+                                <td className="px-4 py-2 text-sm text-right">{parseFloat(price).toFixed(2)}€</td>
+                                <td className="px-4 py-2 text-sm text-right font-semibold">
+                                  {(quantity * price).toFixed(2)}€
+                                </td>
+                                <td className="px-4 py-2 text-right">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveItem(index)}
+                                    className="text-red-600 hover:text-red-900"
+                                  >
+                                    <TrashIcon className="w-4 h-4" />
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                          <tr className="bg-gray-50">
+                            <td colSpan="3" className="px-4 py-2 text-right text-sm">Sous-total</td>
+                            <td className="px-4 py-2 text-right text-sm font-semibold">
+                              {orderFormData.items.reduce((sum, item) => {
+                                const quantity = item.quantity || item.quantity_ordered;
+                                const price = item.unit_price || item.unit_price_ht;
+                                return sum + (quantity * price);
+                              }, 0).toFixed(2)}€
+                            </td>
+                            <td></td>
+                          </tr>
+                          <tr className="bg-gray-50">
+                            <td colSpan="3" className="px-4 py-2 text-right text-sm">Frais de port</td>
+                            <td className="px-4 py-2 text-right text-sm">
+                              {parseFloat(orderFormData.shipping_cost || 0).toFixed(2)}€
+                            </td>
+                            <td></td>
+                          </tr>
+                          <tr className="bg-gray-50 font-semibold">
+                            <td colSpan="3" className="px-4 py-2 text-right">Total</td>
+                            <td className="px-4 py-2 text-right">{calculateOrderTotal().toFixed(2)}€</td>
+                            <td></td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Notes</label>
+                  <textarea
+                    value={orderFormData.notes}
+                    onChange={(e) => setOrderFormData({ ...orderFormData, notes: e.target.value })}
+                    rows="3"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div className="flex justify-end gap-3 mt-6">
+                  <button
+                    type="button"
+                    onClick={() => setShowOrderModal(false)}
+                    className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  >
+                    {selectedOrder ? 'Mettre à jour' : 'Créer'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Detail Modal */}
+      {showDetailModal && selectedOrder && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <h2 className="text-2xl font-bold mb-6">Détails de la commande</h2>
+              <div className="space-y-4">
+                <div>
+                  <p className="text-sm font-medium text-gray-500">Référence</p>
+                  <p className="text-lg font-semibold">
+                    {selectedOrder.purchase_order_number || selectedOrder.reference_number}
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Fournisseur</p>
+                    <p>{selectedOrder.supplier?.name || selectedOrder.supplier_name}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Magasin</p>
+                    <p>{storeLabels[selectedOrder.store]}</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Date de commande</p>
+                    <p>{new Date(selectedOrder.created_at).toLocaleDateString('fr-FR')}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Livraison prévue</p>
+                    <p>
+                      {selectedOrder.expected_delivery_date 
+                        ? new Date(selectedOrder.expected_delivery_date).toLocaleDateString('fr-FR')
+                        : '-'
+                      }
+                    </p>
+                  </div>
+                </div>
+                {selectedOrder.items && selectedOrder.items.length > 0 && (
+                  <div>
+                    <p className="text-sm font-medium text-gray-500 mb-2">Articles</p>
+                    <table className="min-w-full divide-y divide-gray-200 border border-gray-200 rounded-lg">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Produit</th>
+                          <th className="px-4 py-2 text-right text-xs font-medium text-gray-500">Quantité</th>
+                          <th className="px-4 py-2 text-right text-xs font-medium text-gray-500">Prix unitaire</th>
+                          <th className="px-4 py-2 text-right text-xs font-medium text-gray-500">Total</th>
                         </tr>
                       </thead>
-                      <tbody>
-                        {newPurchase.items.map((item, index) => {
-                          const itemTotal = calculateItemTotal(item);
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {selectedOrder.items.map((item, index) => {
+                          const quantity = item.quantity_ordered || item.quantity;
+                          const price = item.unit_price_ht || item.unit_price;
                           return (
-                            <tr key={index} className="border-b border-gray-200">
-                              <td className="px-4 py-3 text-gray-900 font-medium">
-                                {item.product_name}
-                              </td>
-                              <td className="px-4 py-3 text-center text-gray-700">{item.quantity_ordered}</td>
-                              <td className="px-4 py-3 text-right text-gray-700">{item.unit_price_ht.toFixed(2)}€</td>
-                              <td className="px-4 py-3 text-center text-gray-700">{item.tva_rate}%</td>
-                              <td className="px-4 py-3 text-right font-semibold text-gray-900">{itemTotal.ht.toFixed(2)}€</td>
-                              <td className="px-4 py-3 text-right font-bold text-green-600">{itemTotal.ttc.toFixed(2)}€</td>
-                              <td className="px-4 py-3">
-                                <button
-                                  onClick={() => removeItemFromPurchase(index)}
-                                  className="text-red-600 hover:bg-red-100 p-2 rounded-lg transition-colors"
-                                >
-                                  <XCircleIcon className="h-5 w-5" />
-                                </button>
+                            <tr key={index}>
+                              <td className="px-4 py-2 text-sm">{item.product_name}</td>
+                              <td className="px-4 py-2 text-sm text-right">{quantity}</td>
+                              <td className="px-4 py-2 text-sm text-right">{parseFloat(price).toFixed(2)}€</td>
+                              <td className="px-4 py-2 text-sm text-right">
+                                {(quantity * price).toFixed(2)}€
                               </td>
                             </tr>
                           );
                         })}
+                        <tr className="bg-gray-50">
+                          <td colSpan="3" className="px-4 py-2 text-right text-sm">Frais de port</td>
+                          <td className="px-4 py-2 text-right text-sm">
+                            {parseFloat(selectedOrder.shipping_cost || 0).toFixed(2)}€
+                          </td>
+                        </tr>
+                        <tr className="bg-gray-50 font-semibold">
+                          <td colSpan="3" className="px-4 py-2 text-right">Total</td>
+                          <td className="px-4 py-2 text-right">
+                            {parseFloat(selectedOrder.total_ttc || selectedOrder.total_amount || 0).toFixed(2)}€
+                          </td>
+                        </tr>
                       </tbody>
                     </table>
                   </div>
-
-                  {/* Totaux */}
-                  {totals && (
-                    <div className="bg-gradient-to-br from-green-50 to-blue-50 rounded-2xl p-6 border-2 border-green-200">
-                      <div className="space-y-2">
-                        <div className="flex justify-between items-center">
-                          <span className="text-gray-700 font-medium">Total HT:</span>
-                          <span className="text-xl font-bold text-gray-900">{totals.total_ht}€</span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-gray-700 font-medium">Total TVA:</span>
-                          <span className="text-xl font-bold text-gray-900">{totals.total_tva}€</span>
-                        </div>
-                        <div className="flex justify-between items-center pt-3 border-t-2 border-green-300">
-                          <span className="text-gray-900 font-bold text-lg">Total TTC:</span>
-                          <span className="text-3xl font-bold text-green-600">{totals.total_ttc}€</span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Boutons d'action */}
-              <div className="flex justify-end gap-3 mt-8 pt-6 border-t-2 border-gray-100">
+                )}
+                {selectedOrder.notes && (
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Notes</p>
+                    <p>{selectedOrder.notes}</p>
+                  </div>
+                )}
+              </div>
+              <div className="flex justify-end mt-6">
                 <button
-                  onClick={() => {
-                    setShowNewPurchaseModal(false);
-                    resetNewPurchaseForm();
-                  }}
-                  className="px-6 py-3 border-2 border-gray-300 rounded-xl text-gray-700 hover:bg-gray-50 font-medium transition-all"
+                  onClick={() => setShowDetailModal(false)}
+                  className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
                 >
-                  Annuler
-                </button>
-                <button
-                  onClick={createPurchase}
-                  disabled={!newPurchase.supplier || newPurchase.items.length === 0}
-                  className="px-6 py-3 bg-gradient-to-r from-green-600 to-blue-600 text-white rounded-xl hover:shadow-lg font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Créer la commande
+                  Fermer
                 </button>
               </div>
             </div>
@@ -670,133 +683,15 @@ export default function Purchases() {
         </div>
       )}
 
-      {/* Modal détails */}
-      {showDetailModal && selectedPurchase && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-3xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
-            <div className="p-8">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-4">
-                  <div className="p-3 bg-gradient-to-br from-green-500 to-blue-600 rounded-2xl shadow-lg">
-                    <DocumentTextIcon className="h-7 w-7 text-white" />
-                  </div>
-                  <div>
-                    <h2 className="text-3xl font-bold text-gray-900">{selectedPurchase.purchase_order_number}</h2>
-                    <p className="text-gray-500 mt-1">{selectedPurchase.supplier?.name || 'N/A'}</p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setShowDetailModal(false)}
-                  className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl p-2 transition-all"
-                >
-                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-
-              <div className="space-y-6">
-                {/* Statut */}
-                <div className="flex items-center gap-3">
-                  <span className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold border ${getStatusBadge(selectedPurchase.status).class}`}>
-                    <span>{getStatusBadge(selectedPurchase.status).icon}</span>
-                    {getStatusBadge(selectedPurchase.status).label}
-                  </span>
-                </div>
-
-                {/* Dates */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-gray-50 rounded-2xl p-4">
-                    <div className="text-sm text-gray-600 mb-1 font-medium">Date de commande</div>
-                    <div className="text-lg font-bold text-gray-900">
-                      {new Date(selectedPurchase.order_date).toLocaleDateString('fr-FR')}
-                    </div>
-                  </div>
-                  <div className="bg-gray-50 rounded-2xl p-4">
-                    <div className="text-sm text-gray-600 mb-1 font-medium">Livraison prévue</div>
-                    <div className="text-lg font-bold text-gray-900">
-                      {selectedPurchase.expected_delivery_date 
-                        ? new Date(selectedPurchase.expected_delivery_date).toLocaleDateString('fr-FR')
-                        : '-'}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Articles */}
-                {selectedPurchase.items && selectedPurchase.items.length > 0 && (
-                  <div className="border-t-2 border-gray-100 pt-6">
-                    <h3 className="text-lg font-bold text-gray-900 mb-4">Articles commandés</h3>
-                    <div className="bg-gray-50 rounded-2xl p-4">
-                      <table className="w-full">
-                        <thead>
-                          <tr className="border-b border-gray-200">
-                            <th className="px-4 py-2 text-left text-sm font-bold text-gray-700">Produit</th>
-                            <th className="px-4 py-2 text-center text-sm font-bold text-gray-700">Qté</th>
-                            <th className="px-4 py-2 text-right text-sm font-bold text-gray-700">Prix HT</th>
-                            <th className="px-4 py-2 text-center text-sm font-bold text-gray-700">TVA</th>
-                            <th className="px-4 py-2 text-right text-sm font-bold text-gray-700">Total</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {selectedPurchase.items.map((item, index) => (
-                            <tr key={index} className="border-b border-gray-200">
-                              <td className="px-4 py-3 text-gray-900 font-medium">
-                                {item.product_name}
-                              </td>
-                              <td className="px-4 py-3 text-center text-gray-700">{item.quantity_ordered}</td>
-                              <td className="px-4 py-3 text-right text-gray-700">{parseFloat(item.unit_price_ht).toFixed(2)}€</td>
-                              <td className="px-4 py-3 text-center text-gray-700">{item.tva_rate}%</td>
-                              <td className="px-4 py-3 text-right font-bold text-gray-900">
-                                {(item.quantity_ordered * item.unit_price_ht * (1 + item.tva_rate / 100)).toFixed(2)}€
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
-
-                {/* Totaux */}
-                <div className="bg-gradient-to-br from-green-50 to-blue-50 rounded-2xl p-6 border-2 border-green-200">
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-700 font-medium">Total HT:</span>
-                      <span className="text-xl font-bold text-gray-900">{parseFloat(selectedPurchase.subtotal_ht || 0).toFixed(2)}€</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-700 font-medium">Total TVA:</span>
-                      <span className="text-xl font-bold text-gray-900">{parseFloat(selectedPurchase.total_tva || 0).toFixed(2)}€</span>
-                    </div>
-                    <div className="flex justify-between items-center pt-3 border-t-2 border-green-300">
-                      <span className="text-gray-900 font-bold text-lg">Total TTC:</span>
-                      <span className="text-3xl font-bold text-green-600">{parseFloat(selectedPurchase.total_ttc || 0).toFixed(2)}€</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-3 mt-8 pt-6 border-t-2 border-gray-100">
-                <button
-                  onClick={() => setShowDetailModal(false)}
-                  className="px-6 py-3 border-2 border-gray-300 rounded-xl text-gray-700 hover:bg-gray-50 font-medium transition-all"
-                >
-                  Fermer
-                </button>
-                {!['received', 'cancelled'].includes(selectedPurchase.status) && (
-                  <button
-                    onClick={() => {
-                      markAsReceived(selectedPurchase.id);
-                      setShowDetailModal(false);
-                    }}
-                    className="px-6 py-3 bg-gradient-to-r from-green-600 to-blue-600 text-white rounded-xl hover:shadow-lg font-medium transition-all flex items-center gap-2"
-                  >
-                    <CheckCircleIcon className="h-5 w-5" />
-                    Marquer comme reçu
-                  </button>
-                )}
-              </div>
-            </div>
+      {/* Notifications */}
+      {notification.show && (
+        <div className="fixed bottom-4 right-4 z-50">
+          <div
+            className={`px-6 py-3 rounded-lg shadow-lg ${
+              notification.type === "success" ? "bg-green-500" : "bg-red-500"
+            } text-white`}
+          >
+            {notification.message}
           </div>
         </div>
       )}
