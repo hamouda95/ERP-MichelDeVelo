@@ -371,20 +371,11 @@ export default function Products() {
                 ))}
               </select>
 
-              <select
-                value={filters.category}
-                onChange={(e) => setFilters({...filters, category: e.target.value})}
-                className="px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="all">Toutes les catégories</option>
-                {categories.map(cat => (
-                  <option key={cat.name} value={cat.name}>{cat.name}</option>
-                ))}
-              </select>
+              
 
-              {(filters.productType !== 'all' || filters.visibility !== 'all' || filters.brand !== 'all' || filters.category !== 'all') && (
+              {(filters.productType !== 'all' || filters.visibility !== 'all' || filters.brand !== 'all' ) && (
                 <button
-                  onClick={() => setFilters({ productType: 'all', visibility: 'all', brand: 'all', category: 'all' })}
+                  onClick={() => setFilters({ productType: 'all', visibility: 'all', brand: 'all'})}
                   className="text-sm text-blue-600 hover:text-blue-700 font-medium"
                 >
                   Réinitialiser
