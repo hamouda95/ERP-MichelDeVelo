@@ -66,6 +66,25 @@ export const productsAPI = {
   }),
 };
 
+// ===== CATEGORIES API =====
+export const apicategories = {
+  getAll: async () => {
+    // Example: fetch all categories from your backend
+    const response = await fetch('/api/categories');
+    if (!response.ok) throw new Error('Failed to fetch categories');
+    return response.json();
+  },
+
+  getById: async (id) => {
+    // Example: fetch category by ID
+    const response = await fetch(`/api/categories/${id}`);
+    if (!response.ok) throw new Error(`Failed to fetch category with id ${id}`);
+    return response.json();
+  },
+
+  // Add more category API methods as needed
+};
+
 // ===== CLIENTS API =====
 export const clientsAPI = {
   // Récupérer tous les clients avec filtres optionnels
