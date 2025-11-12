@@ -17,7 +17,8 @@ class Product(models.Model):
         ('bike', 'Vélo'),
         ('accessory', 'Accessoire'),
         ('part', 'Pièce détachée'),
-        ('service', 'Service'),
+        ('prestation', 'Prestation'),
+        ('occasion', 'Occasion'),
     ]
     
     STORE_CHOICES = [
