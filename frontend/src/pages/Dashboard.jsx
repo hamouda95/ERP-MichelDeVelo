@@ -114,12 +114,23 @@ export default function Dashboard() {
       </div>
 
       {/* Graphiques */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Ventes mensuelles */}
+      
+        
+        {/* Alertes stock */}
         <div className="bg-white rounded-xl shadow-lg p-6">
-          <h2 className="text-xl font-bold text-gray-900 mb-4">Évolution des ventes</h2>
-          <Line data={salesChartData} options={{ responsive: true, maintainAspectRatio: true }} />
-        </div>
+          <h2 className="text-xl font-bold text-gray-900 mb-4">Alertes stock</h2>
+          <div className="space-y-3">
+            {stats?.lowStockProducts?.map((product) => (
+              <div key={product.id} className="flex items-center justify-between p-3 bg-red-50 rounded-lg">
+                <div>
+                  <p className="font-medium text-gray-900">{product.name}</p>
+                  <p className="text-sm text-gray-600">Réf: {product.reference}</p>
+                </div>
+                <span className="px-3 py-1 bg-red-100 text-red-800 text-sm font-semibold rounded-full">
+                  Stock: {product.total_stock}
+                </span>
+              </div>
+        
 
         {/* Top produits */}
         <div className="bg-white rounded-xl shadow-lg p-6">
@@ -135,20 +146,6 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Alertes stock */}
-        <div className="bg-white rounded-xl shadow-lg p-6">
-          <h2 className="text-xl font-bold text-gray-900 mb-4">Alertes stock</h2>
-          <div className="space-y-3">
-            {stats?.lowStockProducts?.map((product) => (
-              <div key={product.id} className="flex items-center justify-between p-3 bg-red-50 rounded-lg">
-                <div>
-                  <p className="font-medium text-gray-900">{product.name}</p>
-                  <p className="text-sm text-gray-600">Réf: {product.reference}</p>
-                </div>
-                <span className="px-3 py-1 bg-red-100 text-red-800 text-sm font-semibold rounded-full">
-                  Stock: {product.total_stock}
-                </span>
-              </div>
             ))}
           </div>
         </div>
