@@ -104,11 +104,11 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         
         {/* Alertes stock */}
-        <div className="bg-white rounded-xl shadow-lg p-6 flex flex-col h-[500px]">
+        <div className="bg-white rounded-xl shadow-lg p-6 flex flex-col max-h-[600px]">
           <h2 className="text-xl font-bold text-gray-900 mb-4">
             Alertes stock {stats?.lowStockProducts?.length ? `(${stats.lowStockProducts.length})` : ''}
           </h2>
-          <div className="space-y-3 overflow-y-auto pr-2">
+          <div className="flex-1 overflow-y-auto space-y-3 pr-2">
             {stats?.lowStockProducts?.length > 0 ? (
               stats.lowStockProducts.map((product) => (
                 <div
@@ -131,9 +131,9 @@ export default function Dashboard() {
         </div>
 
         {/* Dernières commandes */}
-        <div className="bg-white rounded-xl shadow-lg p-6 flex flex-col h-[500px]">
+        <div className="bg-white rounded-xl shadow-lg p-6 flex flex-col max-h-[600px]">
           <h2 className="text-xl font-bold text-gray-900 mb-4">Dernières commandes</h2>
-          <div className="overflow-y-auto">
+          <div className="flex-1 overflow-y-auto">
             <table className="min-w-full divide-y divide-gray-200 text-sm">
               <thead className="sticky top-0 bg-white">
                 <tr>
