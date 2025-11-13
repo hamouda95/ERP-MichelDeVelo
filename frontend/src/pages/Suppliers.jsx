@@ -265,7 +265,7 @@ export default function Suppliers() {
 
                 <div className="grid grid-cols-3 gap-4 mb-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Ville *</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Ville</label>
                     <input
                       type="text"
                       
@@ -275,7 +275,7 @@ export default function Suppliers() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Code postal *</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Code postal</label>
                     <input
                       type="text"
                       value={supplierFormData.postal_code}
@@ -284,7 +284,7 @@ export default function Suppliers() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Pays</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Pays *</label>
                     <input
                       type="text"
                       required
@@ -296,7 +296,7 @@ export default function Suppliers() {
                 </div>
 
                 <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Adresse *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Adresse</label>
                   <input
                     type="text"
                     
@@ -361,4 +361,5 @@ export default function Suppliers() {
     </div>
   );
 }
+
 
