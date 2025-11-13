@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Line, Bar, Doughnut } from 'react-chartjs-2';
+import { Line, Bar } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -7,7 +7,6 @@ import {
   PointElement,
   LineElement,
   BarElement,
-  ArcElement,
   Title,
   Tooltip,
   Legend,
@@ -15,7 +14,7 @@ import {
 import { analyticsAPI } from '../services/api';
 import toast from 'react-hot-toast';
 
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, ArcElement, Title, Tooltip, Legend);
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend);
 
 export default function Dashboard() {
   const [stats, setStats] = useState(null);
@@ -44,19 +43,6 @@ export default function Dashboard() {
     );
   }
 
-  const salesChartData = {
-    labels: stats?.salesByMonth?.map(s => s.month) || [],
-    datasets: [
-      {
-        label: 'Ventes (€)',
-        data: stats?.salesByMonth?.map(s => s.total) || [],
-        borderColor: 'rgb(37, 99, 235)',
-        backgroundColor: 'rgba(37, 99, 235, 0.1)',
-        tension: 0.4,
-      },
-    ],
-  };
-
   const topProductsData = {
     labels: stats?.topProducts?.map(p => p.name) || [],
     datasets: [
@@ -70,16 +56,6 @@ export default function Dashboard() {
           'rgba(147, 197, 253, 0.8)',
           'rgba(191, 219, 254, 0.8)',
         ],
-      },
-    ],
-  };
-
-  const storeDistributionData = {
-    labels: ['Ville d\'Avray', 'Garches'],
-    datasets: [
-      {
-        data: [stats?.storeStats?.ville_avray || 0, stats?.storeStats?.garches || 0],
-        backgroundColor: ['rgba(37, 99, 235, 0.8)', 'rgba(59, 130, 246, 0.8)'],
       },
     ],
   };
@@ -124,16 +100,21 @@ export default function Dashboard() {
         />
       </div>
 
-      {/* Graphiques et alertes */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* Alertes + Dernières commandes */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         
         {/* Alertes stock */}
-        <div className="bg-white rounded-xl shadow-lg p-6 lg:col-span-1">
-          <h2 className="text-xl font-bold text-gray-900 mb-4">Alertes stock</h2>
-          <div className="space-y-3">
+        <div className="bg-white rounded-xl shadow-lg p-6 flex flex-col h-[500px]">
+          <h2 className="text-xl font-bold text-gray-900 mb-4">
+            Alertes stock {stats?.lowStockProducts?.length ? `(${stats.lowStockProducts.length})` : ''}
+          </h2>
+          <div className="space-y-3 overflow-y-auto pr-2">
             {stats?.lowStockProducts?.length > 0 ? (
               stats.lowStockProducts.map((product) => (
-                <div key={product.id} className="flex items-center justify-between p-3 bg-red-50 rounded-lg">
+                <div
+                  key={product.id}
+                  className="flex items-center justify-between p-3 bg-red-50 rounded-lg"
+                >
                   <div>
                     <p className="font-medium text-gray-900">{product.name}</p>
                     <p className="text-sm text-gray-600">Réf: {product.reference}</p>
@@ -144,67 +125,53 @@ export default function Dashboard() {
                 </div>
               ))
             ) : (
-              <p className="text-gray-500 text-sm">Aucune alerte de stock pour le moment 🎉</p>
+              <p className="text-gray-500 text-sm">Aucune alerte de stock 🎉</p>
             )}
           </div>
         </div>
 
-        {/* Top produits */}
-        <div className="bg-white rounded-xl shadow-lg p-6 lg:col-span-1">
-          <h2 className="text-xl font-bold text-gray-900 mb-4">Top 5 produits</h2>
-          <Bar data={topProductsData} options={{ responsive: true, maintainAspectRatio: true }} />
-        </div>
-
-        {/* Répartition magasins */}
-        <div className="bg-white rounded-xl shadow-lg p-6 lg:col-span-1">
-          <h2 className="text-xl font-bold text-gray-900 mb-4">Ventes par magasin</h2>
-          <div className="max-w-xs mx-auto">
-            <Doughnut data={storeDistributionData} options={{ responsive: true, maintainAspectRatio: true }} />
+        {/* Dernières commandes */}
+        <div className="bg-white rounded-xl shadow-lg p-6 flex flex-col h-[500px]">
+          <h2 className="text-xl font-bold text-gray-900 mb-4">Dernières commandes</h2>
+          <div className="overflow-y-auto">
+            <table className="min-w-full divide-y divide-gray-200 text-sm">
+              <thead className="sticky top-0 bg-white">
+                <tr>
+                  <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase">N°</th>
+                  <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase">Client</th>
+                  <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase">Magasin</th>
+                  <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase">Montant</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {stats?.recentOrders?.length > 0 ? (
+                  stats.recentOrders.map((order) => (
+                    <tr key={order.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-2 font-medium">{order.order_number}</td>
+                      <td className="px-4 py-2">{order.client_name}</td>
+                      <td className="px-4 py-2">
+                        {order.store === 'ville_avray' ? 'Ville d\'Avray' : 'Garches'}
+                      </td>
+                      <td className="px-4 py-2">{order.total_ttc.toFixed(2)} €</td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan="4" className="text-center py-4 text-gray-500">
+                      Aucune commande récente 📭
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
 
-      {/* Dernières commandes */}
+      {/* Top produits */}
       <div className="bg-white rounded-xl shadow-lg p-6">
-        <h2 className="text-xl font-bold text-gray-900 mb-4">Dernières commandes</h2>
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead>
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">N° Commande</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Client</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Magasin</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Montant</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Statut</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {stats?.recentOrders?.map((order) => (
-                <tr key={order.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap font-medium">{order.order_number}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">{order.client_name}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    {order.store === 'ville_avray' ? 'Ville d\'Avray' : 'Garches'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">{order.total_ttc.toFixed(2)} €</td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span
-                      className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                        order.status === 'completed'
-                          ? 'bg-green-100 text-green-800'
-                          : order.status === 'processing'
-                          ? 'bg-blue-100 text-blue-800'
-                          : 'bg-yellow-100 text-yellow-800'
-                      }`}
-                    >
-                      {order.status}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <h2 className="text-xl font-bold text-gray-900 mb-4">Top 5 produits</h2>
+        <Bar data={topProductsData} options={{ responsive: true, maintainAspectRatio: true }} />
       </div>
     </div>
   );
@@ -217,7 +184,11 @@ function StatCard({ title, value, icon, trend, trendUp }) {
         <div>
           <p className="text-gray-600 text-sm font-medium">{title}</p>
           <p className="text-3xl font-bold text-gray-900 mt-2">{value}</p>
-          <p className={`text-sm mt-2 font-semibold ${trendUp ? 'text-green-600' : 'text-red-600'}`}>
+          <p
+            className={`text-sm mt-2 font-semibold ${
+              trendUp ? 'text-green-600' : 'text-red-600'
+            }`}
+          >
             {trend} vs mois dernier
           </p>
         </div>
