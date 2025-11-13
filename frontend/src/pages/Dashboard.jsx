@@ -1,6 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { Line, Bar, Doughnut } from 'react-chartjs-2';
-import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, BarElement, ArcElement, Title, Tooltip, Legend } from 'chart.js';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  ArcElement,
+  Title,
+  Tooltip,
+  Legend,
+} from 'chart.js';
 import { analyticsAPI } from '../services/api';
 import toast from 'react-hot-toast';
 
@@ -113,40 +124,42 @@ export default function Dashboard() {
         />
       </div>
 
-      {/* Graphiques */}
-      
+      {/* Graphiques et alertes */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         {/* Alertes stock */}
-        <div className="bg-white rounded-xl shadow-lg p-6">
+        <div className="bg-white rounded-xl shadow-lg p-6 lg:col-span-1">
           <h2 className="text-xl font-bold text-gray-900 mb-4">Alertes stock</h2>
           <div className="space-y-3">
-            {stats?.lowStockProducts?.map((product) => (
-              <div key={product.id} className="flex items-center justify-between p-3 bg-red-50 rounded-lg">
-                <div>
-                  <p className="font-medium text-gray-900">{product.name}</p>
-                  <p className="text-sm text-gray-600">Réf: {product.reference}</p>
+            {stats?.lowStockProducts?.length > 0 ? (
+              stats.lowStockProducts.map((product) => (
+                <div key={product.id} className="flex items-center justify-between p-3 bg-red-50 rounded-lg">
+                  <div>
+                    <p className="font-medium text-gray-900">{product.name}</p>
+                    <p className="text-sm text-gray-600">Réf: {product.reference}</p>
+                  </div>
+                  <span className="px-3 py-1 bg-red-100 text-red-800 text-sm font-semibold rounded-full">
+                    Stock: {product.total_stock}
+                  </span>
                 </div>
-                <span className="px-3 py-1 bg-red-100 text-red-800 text-sm font-semibold rounded-full">
-                  Stock: {product.total_stock}
-                </span>
-              </div>
-        
+              ))
+            ) : (
+              <p className="text-gray-500 text-sm">Aucune alerte de stock pour le moment 🎉</p>
+            )}
+          </div>
+        </div>
 
         {/* Top produits */}
-        <div className="bg-white rounded-xl shadow-lg p-6">
+        <div className="bg-white rounded-xl shadow-lg p-6 lg:col-span-1">
           <h2 className="text-xl font-bold text-gray-900 mb-4">Top 5 produits</h2>
           <Bar data={topProductsData} options={{ responsive: true, maintainAspectRatio: true }} />
         </div>
 
         {/* Répartition magasins */}
-        <div className="bg-white rounded-xl shadow-lg p-6">
+        <div className="bg-white rounded-xl shadow-lg p-6 lg:col-span-1">
           <h2 className="text-xl font-bold text-gray-900 mb-4">Ventes par magasin</h2>
           <div className="max-w-xs mx-auto">
             <Doughnut data={storeDistributionData} options={{ responsive: true, maintainAspectRatio: true }} />
-          </div>
-        </div>
-
-            ))}
           </div>
         </div>
       </div>
@@ -170,14 +183,20 @@ export default function Dashboard() {
                 <tr key={order.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap font-medium">{order.order_number}</td>
                   <td className="px-6 py-4 whitespace-nowrap">{order.client_name}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">{order.store === 'ville_avray' ? 'Ville d\'Avray' : 'Garches'}</td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    {order.store === 'ville_avray' ? 'Ville d\'Avray' : 'Garches'}
+                  </td>
                   <td className="px-6 py-4 whitespace-nowrap">{order.total_ttc.toFixed(2)} €</td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                      order.status === 'completed' ? 'bg-green-100 text-green-800' :
-                      order.status === 'processing' ? 'bg-blue-100 text-blue-800' :
-                      'bg-yellow-100 text-yellow-800'
-                    }`}>
+                    <span
+                      className={`px-3 py-1 rounded-full text-sm font-semibold ${
+                        order.status === 'completed'
+                          ? 'bg-green-100 text-green-800'
+                          : order.status === 'processing'
+                          ? 'bg-blue-100 text-blue-800'
+                          : 'bg-yellow-100 text-yellow-800'
+                      }`}
+                    >
                       {order.status}
                     </span>
                   </td>
