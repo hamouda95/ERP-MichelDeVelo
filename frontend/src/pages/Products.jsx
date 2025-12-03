@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { productsAPI, categoriesAPI } from '../services/api';
-import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 import { 
   MagnifyingGlassIcon, 
@@ -41,9 +40,6 @@ function StatCard({ label, value, icon: Icon, color = "blue" }) {
 }
 
 export default function Products() {
-  const { user } = useAuth(); // Récupérer l'utilisateur connecté
-  const isAdmin = user?.role === 'admin'; // Vérifier si l'utilisateur est admin
-  
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [activeTab, setActiveTab] = useState('products'); // 'products' ou 'stock'
@@ -235,15 +231,13 @@ export default function Products() {
           <p className="text-gray-600 mt-1">{filteredProducts.length} produits affichés</p>
         </div>
         <div className="flex gap-3">
-          {isAdmin && (
-            <button 
-              onClick={exportToCSV}
-              className="flex items-center gap-2 bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg font-semibold hover:bg-gray-50 transition"
-            >
-              <ArrowDownTrayIcon className="w-5 h-5" />
-              Exporter CSV
-            </button>
-          )}
+          <button 
+            onClick={exportToCSV}
+            className="flex items-center gap-2 bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg font-semibold hover:bg-gray-50 transition"
+          >
+            <ArrowDownTrayIcon className="w-5 h-5" />
+            Exporter CSV
+          </button>
           <button 
             onClick={() => setShowAddModal(true)}
             className="flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition"
@@ -271,13 +265,11 @@ export default function Products() {
           value={stats.outOfStock}
           color="red"
         />
-        {isAdmin && (
-          <StatCard 
-            label="Valeur du stock" 
-            value={`${stats.stockValue} €`}
-            color="yellow"
-          />
-        )}
+        <StatCard 
+          label="Valeur du stock" 
+          value={`${stats.stockValue} €`}
+          color="yellow"
+        />
       </div>
 
       {/* Onglets */}
@@ -294,19 +286,16 @@ export default function Products() {
             >
               Catalogue Produits
             </button>
-            {/* Onglet Stock visible uniquement pour les admins */}
-            {isAdmin && (
-              <button
-                onClick={() => setActiveTab('stock')}
-                className={`px-6 py-4 font-semibold transition ${
-                  activeTab === 'stock'
-                    ? 'text-blue-600 border-b-2 border-blue-600'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                Gestion du Stock
-              </button>
-            )}
+            <button
+              onClick={() => setActiveTab('stock')}
+              className={`px-6 py-4 font-semibold transition ${
+                activeTab === 'stock'
+                  ? 'text-blue-600 border-b-2 border-blue-600'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Gestion du Stock
+            </button>
           </div>
         </div>
 
@@ -449,7 +438,6 @@ export default function Products() {
               onEdit={handleEdit}
               //onDelete={handleDelete}
               showStockDetails={activeTab === 'stock'}
-              isAdmin={isAdmin}
             />
           ))}
         </div>
@@ -461,7 +449,7 @@ export default function Products() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Référence</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nom</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Prix TTC</th>
-                {activeTab === 'stock' && isAdmin ? (
+                {activeTab === 'stock' ? (
                   <>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ville d'Avray</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Garches</th>
@@ -482,7 +470,7 @@ export default function Products() {
                   <td className="px-6 py-4 whitespace-nowrap font-medium">{product.reference}</td>
                   <td className="px-6 py-4">{product.name}</td>
                   <td className="px-6 py-4 whitespace-nowrap">{product.price_ttc} €</td>
-                  {activeTab === 'stock' && isAdmin ? (
+                  {activeTab === 'stock' ? (
                     <>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className="font-semibold">{product.stock_ville_avray}</span>
@@ -548,14 +536,14 @@ export default function Products() {
 
       {/* Modales */}
       {showAddModal && <ProductModal onClose={() => setShowAddModal(false)} onSave={loadProducts} />}
-      {showEditModal && <ProductModal product={selectedProduct} onClose={() => setShowEditModal(false)} onSave={loadProducts} isAdmin={isAdmin} />}
+      {showEditModal && <ProductModal product={selectedProduct} onClose={() => setShowEditModal(false)} onSave={loadProducts} />}
       
     </div>
   );
 }
 
 // Composant ProductCard pour la vue grille
-function ProductCard({ product, onToggleVisibility, onEdit, showStockDetails, isAdmin }) {
+function ProductCard({ product, onToggleVisibility, onEdit, showStockDetails }) {
   return (
     <div className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition">
       <div className="p-6">
@@ -581,7 +569,7 @@ function ProductCard({ product, onToggleVisibility, onEdit, showStockDetails, is
             <span className="text-lg font-bold text-gray-900">{product.price_ttc} €</span>
           </div>
 
-          {showStockDetails && isAdmin ? (
+          {showStockDetails ? (
             <div className="space-y-2 pt-3 border-t">
               <div className="flex items-center justify-between text-sm">
                 <span className="text-gray-600">Ville d'Avray</span>
@@ -656,7 +644,7 @@ function ConfirmModal({ title, message, onConfirm, onCancel }) {
 }
 
 // Modal d'ajout/édition de produit
-function ProductModal({ product, onClose, onSave, isAdmin = true }) {
+function ProductModal({ product, onClose, onSave }) {
   const [loading, setLoading] = useState(false);
   const [categories, setCategories] = useState([]);
   const [formData, setFormData] = useState({
@@ -853,83 +841,80 @@ function ProductModal({ product, onClose, onSave, isAdmin = true }) {
             </div>
           </div>
 
-          {/* Section Stock - uniquement pour les admins */}
-          {isAdmin && (
-            <>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Stock Ville d'Avray</label>
-                  <input
-                    type="number"
-                    name="stock_ville_avray"
-                    value={formData.stock_ville_avray}
-                    onChange={handleChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Stock Ville d'Avray</label>
+              <input
+                type="number"
+                name="stock_ville_avray"
+                value={formData.stock_ville_avray}
+                onChange={handleChange}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Stock Garches</label>
-                  <input
-                    type="number"
-                    name="stock_garches"
-                    value={formData.stock_garches}
-                    onChange={handleChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-              </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Stock Garches</label>
+              <input
+                type="number"
+                name="stock_garches"
+                value={formData.stock_garches}
+                onChange={handleChange}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
 
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Seuil d'alerte stock</label>
-                  <input
-                    type="number"
-                    name="alert_stock"
-                    value={formData.alert_stock}
-                    onChange={handleChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Seuil d'alerte stock</label>
+              <input
+                type="number"
+                name="alert_stock"
+                value={formData.alert_stock}
+                onChange={handleChange}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Marque</label>
-                  <input
-                    type="text"
-                    name="brand"
-                    value={formData.brand}
-                    onChange={handleChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
+            
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Taille</label>
-                  <input
-                    type="text"
-                    name="size"
-                    value={formData.size}
-                    onChange={handleChange}
-                    placeholder="ex: M, L, 54cm"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-              </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Marque</label>
+              <input
+                type="text"
+                name="brand"
+                value={formData.brand}
+                onChange={handleChange}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Poids (kg)</label>
-                <input
-                  type="number"
-                  name="weight"
-                  value={formData.weight}
-                  onChange={handleChange}
-                  step="0.01"
-                  placeholder="ex: 12.5"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-            </>
-          )}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Taille</label>
+              <input
+                type="text"
+                name="size"
+                value={formData.size}
+                onChange={handleChange}
+                placeholder="ex: M, L, 54cm"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Poids (kg)</label>
+            <input
+              type="number"
+              name="weight"
+              value={formData.weight}
+              onChange={handleChange}
+              step="0.01"
+              placeholder="ex: 12.5"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
 
           <div className="flex items-center gap-6">
             <div className="flex items-center gap-2">
