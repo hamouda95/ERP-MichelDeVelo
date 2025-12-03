@@ -116,7 +116,7 @@ def dashboard_stats(request):
                     'reference': p.reference,
                     'total_stock': total_stock
                 })
-                if len(low_stock_data) >= 5:
+                if len(low_stock_data) >= 20: #5
                     break
         
         # Dernières commandes (10 dernières)
