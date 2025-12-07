@@ -48,12 +48,11 @@ export default function Products() {
   const [loading, setLoading] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
-  //const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
   
   // Filtres pour l'onglet Produits
   const [filters, setFilters] = useState({
-    store: 'all', // 'all', 'ville_avray', 'garches'
+    store: 'all',
     productType: 'all',
     visibility: 'all',
     brand: 'all',
@@ -62,8 +61,8 @@ export default function Products() {
 
   // Filtres pour l'onglet Stock
   const [stockFilters, setStockFilters] = useState({
-    store: 'all', // 'all', 'ville_avray', 'garches'
-    stockLevel: 'all' // 'all', 'out', 'low', 'normal'
+    store: 'all',
+    stockLevel: 'all'
   });
 
   const loadProducts = React.useCallback(async () => {
@@ -80,15 +79,13 @@ export default function Products() {
 
   const loadCategories = React.useCallback(async () => {
     try {
-      // Assure-toi d'avoir un endpoint categoriesAPI dans ton api.js
       const response = await categoriesAPI.getAll();
       setCategories(response.data.results || response.data);
-      
-      // Pour l'instant, on extrait les catégories des produits
-      const uniqueCategories = [...new Set(products.map(p => p.category?.name).filter(Boolean))];
-      setCategories(uniqueCategories.map(name => ({ name })));
     } catch (error) {
       console.error('Erreur de chargement des catégories');
+      // Extraction des catégories depuis les produits en fallback
+      const uniqueCategories = [...new Set(products.map(p => p.category?.name).filter(Boolean))];
+      setCategories(uniqueCategories.map(name => ({ name })));
     }
   }, [products]);
 
@@ -180,23 +177,7 @@ export default function Products() {
     setSelectedProduct(product);
     setShowEditModal(true);
   };
-/*
-  const handleDelete = (product) => {
-    setSelectedProduct(product);
-    setShowDeleteModal(true);
-  };
 
-  const confirmDelete = async () => {
-    try {
-      await productsAPI.delete(selectedProduct.id);
-      toast.success('Produit supprimé');
-      loadProducts();
-      setShowDeleteModal(false);
-    } catch (error) {
-      toast.error('Erreur de suppression');
-    }
-  };
-*/
   const exportToCSV = () => {
     const headers = ['Référence', 'Nom', 'Prix TTC', 'Stock Ville d\'Avray', 'Stock Garches', 'Stock Total'];
     const rows = filteredProducts.map(p => [
@@ -346,7 +327,7 @@ export default function Products() {
                 <option value="bike">Vélos</option>
                 <option value="accessory">Accessoires</option>
                 <option value="part">Pièces détachées</option>
-                <option value="service">Prestations</option>
+                <option value="prestation">Prestations</option>
                 <option value="occasion">Occasions</option>
               </select>
 
@@ -371,11 +352,22 @@ export default function Products() {
                 ))}
               </select>
 
-              
+              <select
+                value={filters.category}
+                onChange={(e) => setFilters({...filters, category: e.target.value})}
+                className="px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="all">Toutes les catégories</option>
+                {categories.map(category => (
+                  <option key={category.id || category.name} value={category.name}>
+                    {category.name}
+                  </option>
+                ))}
+              </select>
 
-              {(filters.productType !== 'all' || filters.visibility !== 'all' || filters.brand !== 'all' ) && (
+              {(filters.productType !== 'all' || filters.visibility !== 'all' || filters.brand !== 'all' || filters.category !== 'all') && (
                 <button
-                  onClick={() => setFilters({ productType: 'all', visibility: 'all', brand: 'all'})}
+                  onClick={() => setFilters({ productType: 'all', visibility: 'all', brand: 'all', category: 'all'})}
                   className="text-sm text-blue-600 hover:text-blue-700 font-medium"
                 >
                   Réinitialiser
@@ -436,7 +428,6 @@ export default function Products() {
               product={product} 
               onToggleVisibility={toggleVisibility}
               onEdit={handleEdit}
-              //onDelete={handleDelete}
               showStockDetails={activeTab === 'stock'}
             />
           ))}
@@ -517,7 +508,6 @@ export default function Products() {
                       >
                         <PencilIcon className="w-5 h-5" />
                       </button>
-                      
                     </div>
                   </td>
                 </tr>
@@ -535,8 +525,8 @@ export default function Products() {
       )}
 
       {/* Modales */}
-      {showAddModal && <ProductModal onClose={() => setShowAddModal(false)} onSave={loadProducts} />}
-      {showEditModal && <ProductModal product={selectedProduct} onClose={() => setShowEditModal(false)} onSave={loadProducts} />}
+      {showAddModal && <ProductModal onClose={() => setShowAddModal(false)} onSave={loadProducts} categories={categories} />}
+      {showEditModal && <ProductModal product={selectedProduct} onClose={() => setShowEditModal(false)} onSave={loadProducts} categories={categories} />}
       
     </div>
   );
@@ -610,33 +600,6 @@ function ProductCard({ product, onToggleVisibility, onEdit, showStockDetails }) 
             <PencilIcon className="w-4 h-4" />
             Modifier
           </button>
-          
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// Modal de confirmation de suppression
-function ConfirmModal({ title, message, onConfirm, onCancel }) {
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl max-w-md w-full p-6">
-        <h3 className="text-xl font-bold text-gray-900 mb-4">{title}</h3>
-        <p className="text-gray-600 mb-6">{message}</p>
-        <div className="flex gap-4">
-          <button
-            onClick={onCancel}
-            className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-50"
-          >
-            Annuler
-          </button>
-          <button
-            onClick={onConfirm}
-            className="flex-1 px-6 py-3 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700"
-          >
-            Supprimer
-          </button>
         </div>
       </div>
     </div>
@@ -644,9 +607,8 @@ function ConfirmModal({ title, message, onConfirm, onCancel }) {
 }
 
 // Modal d'ajout/édition de produit
-function ProductModal({ product, onClose, onSave }) {
+function ProductModal({ product, onClose, onSave, categories }) {
   const [loading, setLoading] = useState(false);
-  const [categories, setCategories] = useState([]);
   const [formData, setFormData] = useState({
     reference: product?.reference || '',
     name: product?.name || '',
@@ -667,32 +629,15 @@ function ProductModal({ product, onClose, onSave }) {
     is_active: product?.is_active ?? true
   });
 
-  // Charger les catégories au montage du composant
-  useEffect(() => {
-    const loadCategories = async () => {
-      try {
-        // Si tu as un endpoint pour les catégories:
-        const response = await categoriesAPI.getAll();
-        setCategories(response.data.results || response.data);
-        
-        // Sinon, tu peux laisser vide pour l'instant
-        setCategories([]);
-      } catch (error) {
-        console.error('Erreur de chargement des catégories');
-      }
-    };
-    loadCategories();
-  }, []);
-
-  // Calcul automatique du prix TTC quand HT ou TVA change
+  // Calcul automatique du prix HT quand TTC ou TVA change
   useEffect(() => {
     if (formData.price_ttc && formData.tva_rate) {
       const ttc = parseFloat(formData.price_ttc);
       const tva = parseFloat(formData.tva_rate);
-      const ht = (ttc / (1 + tva / 100)).toFixed(2);
-      
-     
-      setFormData(prev => ({ ...prev, price_ht: ht }));
+      if (!isNaN(ttc) && !isNaN(tva)) {
+        const ht = (ttc / (1 + tva / 100)).toFixed(2);
+        setFormData(prev => ({ ...prev, price_ht: ht }));
+      }
     }
   }, [formData.price_ttc, formData.tva_rate]);
 
@@ -708,11 +653,20 @@ function ProductModal({ product, onClose, onSave }) {
     e.preventDefault();
     setLoading(true);
     try {
+      // Préparer les données en convertissant les valeurs vides en null pour les champs optionnels
+      const dataToSend = {
+        ...formData,
+        category: formData.category || null,
+        barcode: formData.barcode || null,
+        weight: formData.weight || null,
+        size: formData.size || null
+      };
+
       if (product) {
-        await productsAPI.update(product.id, formData);
+        await productsAPI.update(product.id, dataToSend);
         toast.success('Produit mis à jour');
       } else {
-        await productsAPI.create(formData);
+        await productsAPI.create(dataToSend);
         toast.success('Produit créé');
       }
       onSave();
@@ -761,8 +715,8 @@ function ProductModal({ product, onClose, onSave }) {
                 <option value="bike">Vélo</option>
                 <option value="accessory">Accessoire</option>
                 <option value="part">Pièce détachée</option>
-                <option value="service">Prestations</option>
-                <option value="occasion">Occasions</option>
+                <option value="prestation">Prestation</option>
+                <option value="occasion">Occasion</option>
               </select>
             </div>
           </div>
@@ -790,6 +744,23 @@ function ProductModal({ product, onClose, onSave }) {
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
               />
             </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Catégorie</label>
+            <select
+              name="category"
+              value={formData.category}
+              onChange={handleChange}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">Aucune catégorie</option>
+              {categories.map(category => (
+                <option key={category.id || category.name} value={category.id}>
+                  {category.name}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div>
@@ -876,8 +847,6 @@ function ProductModal({ product, onClose, onSave }) {
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
               />
             </div>
-
-            
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Marque</label>
