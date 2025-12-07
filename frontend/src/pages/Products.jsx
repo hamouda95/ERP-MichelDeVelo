@@ -6,8 +6,7 @@ import {
   PlusIcon, 
   ViewColumnsIcon, 
   ListBulletIcon, 
-  PencilIcon, 
-  TrashIcon, 
+  PencilIcon,
   XMarkIcon,
   ArrowDownTrayIcon,
   FunnelIcon
@@ -41,7 +40,6 @@ function StatCard({ label, value, icon: Icon, color = "blue" }) {
 
 export default function Products() {
   const [products, setProducts] = useState([]);
-  const [activeTab, setActiveTab] = useState('products'); // 'products' ou 'stock'
   const [viewMode, setViewMode] = useState('list');
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
@@ -49,18 +47,13 @@ export default function Products() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
   
-  // Filtres pour l'onglet Produits
+  // Filtres unifiés
   const [filters, setFilters] = useState({
-    store: 'all',
     productType: 'all',
     visibility: 'all',
-    brand: 'all'
-  });
-
-  // Filtres pour l'onglet Stock
-  const [stockFilters, setStockFilters] = useState({
-    store: 'all',
-    stockLevel: 'all'
+    brand: 'all',
+    stockLevel: 'all', // 'all', 'out', 'low', 'normal'
+    store: 'all' // 'all', 'ville_avray', 'garches'
   });
 
   const loadProducts = React.useCallback(async () => {
@@ -85,17 +78,19 @@ export default function Products() {
     outOfStock: products.filter(p => p.total_stock === 0).length,
     lowStock: products.filter(p => p.is_low_stock && p.total_stock > 0).length,
     activeProducts: products.filter(p => p.is_visible).length,
-    stockValue: products.reduce((sum, p) => sum + (p.price_ttc * p.total_stock), 0).toFixed(2)
+    stockValue: products.reduce((sum, p) => sum + (p.price_ttc * p.total_stock), 0).toFixed(2),
+    totalStockVilleAvray: products.reduce((sum, p) => sum + p.stock_ville_avray, 0),
+    totalStockGarches: products.reduce((sum, p) => sum + p.stock_garches, 0)
   };
 
   // Liste unique des marques
   const brands = [...new Set(products.map(p => p.brand).filter(Boolean))];
 
-  // Filtrage des produits selon l'onglet actif
+  // Filtrage des produits
   const getFilteredProducts = () => {
     let filtered = products;
 
-    // Recherche commune
+    // Recherche
     if (searchQuery) {
       filtered = filtered.filter(
         (p) =>
@@ -105,34 +100,33 @@ export default function Products() {
       );
     }
 
-    if (activeTab === 'products') {
-      // Filtres de l'onglet Produits
-      if (filters.productType !== 'all') {
-        filtered = filtered.filter(p => p.product_type === filters.productType);
-      }
-      if (filters.visibility !== 'all') {
-        filtered = filtered.filter(p => 
-          filters.visibility === 'visible' ? p.is_visible : !p.is_visible
-        );
-      }
-      if (filters.brand !== 'all') {
-        filtered = filtered.filter(p => p.brand === filters.brand);
-      }
-    } else {
-      // Filtres de l'onglet Stock
-      if (stockFilters.stockLevel === 'out') {
-        filtered = filtered.filter(p => p.total_stock === 0);
-      } else if (stockFilters.stockLevel === 'low') {
-        filtered = filtered.filter(p => p.is_low_stock && p.total_stock > 0);
-      } else if (stockFilters.stockLevel === 'normal') {
-        filtered = filtered.filter(p => !p.is_low_stock && p.total_stock > 0);
-      }
+    // Filtres
+    if (filters.productType !== 'all') {
+      filtered = filtered.filter(p => p.product_type === filters.productType);
+    }
+    
+    if (filters.visibility !== 'all') {
+      filtered = filtered.filter(p => 
+        filters.visibility === 'visible' ? p.is_visible : !p.is_visible
+      );
+    }
+    
+    if (filters.brand !== 'all') {
+      filtered = filtered.filter(p => p.brand === filters.brand);
+    }
 
-      if (stockFilters.store === 'ville_avray') {
-        filtered = filtered.filter(p => p.stock_ville_avray > 0);
-      } else if (stockFilters.store === 'garches') {
-        filtered = filtered.filter(p => p.stock_garches > 0);
-      }
+    if (filters.stockLevel === 'out') {
+      filtered = filtered.filter(p => p.total_stock === 0);
+    } else if (filters.stockLevel === 'low') {
+      filtered = filtered.filter(p => p.is_low_stock && p.total_stock > 0);
+    } else if (filters.stockLevel === 'normal') {
+      filtered = filtered.filter(p => !p.is_low_stock && p.total_stock > 0);
+    }
+
+    if (filters.store === 'ville_avray') {
+      filtered = filtered.filter(p => p.stock_ville_avray > 0);
+    } else if (filters.store === 'garches') {
+      filtered = filtered.filter(p => p.stock_garches > 0);
     }
 
     return filtered;
@@ -156,14 +150,18 @@ export default function Products() {
   };
 
   const exportToCSV = () => {
-    const headers = ['Référence', 'Nom', 'Prix TTC', 'Stock Ville d\'Avray', 'Stock Garches', 'Stock Total'];
+    const headers = ['Référence', 'Nom', 'Type', 'Marque', 'Prix TTC', 'Stock Ville d\'Avray', 'Stock Garches', 'Stock Total', 'Visible', 'Actif'];
     const rows = filteredProducts.map(p => [
       p.reference,
       p.name,
+      p.product_type,
+      p.brand || '',
       p.price_ttc,
       p.stock_ville_avray,
       p.stock_garches,
-      p.total_stock
+      p.total_stock,
+      p.is_visible ? 'Oui' : 'Non',
+      p.is_active ? 'Oui' : 'Non'
     ]);
     
     const csvContent = [
@@ -180,13 +178,19 @@ export default function Products() {
     toast.success('Export CSV réussi');
   };
 
+  const hasActiveFilters = filters.productType !== 'all' || 
+                          filters.visibility !== 'all' || 
+                          filters.brand !== 'all' || 
+                          filters.stockLevel !== 'all' || 
+                          filters.store !== 'all';
+
   return (
     <div className="p-6 space-y-6">
       {/* En-tête */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Gestion des Produits</h1>
-          <p className="text-gray-600 mt-1">{filteredProducts.length} produits affichés</p>
+          <h1 className="text-3xl font-bold text-gray-900">Gestion des Produits & Stocks</h1>
+          <p className="text-gray-600 mt-1">{filteredProducts.length} produits affichés sur {products.length}</p>
         </div>
         <div className="flex gap-3">
           <button 
@@ -206,8 +210,8 @@ export default function Products() {
         </div>
       </div>
 
-      {/* Statistiques */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Statistiques étendues */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-4">
         <StatCard 
           label="Total produits" 
           value={stats.total}
@@ -224,157 +228,134 @@ export default function Products() {
           color="red"
         />
         <StatCard 
-          label="Valeur du stock" 
-          value={`${stats.stockValue} €`}
+          label="Stock faible" 
+          value={stats.lowStock}
           color="yellow"
+        />
+        <StatCard 
+          label="Stock Ville d'Avray" 
+          value={stats.totalStockVilleAvray}
+          color="blue"
+        />
+        <StatCard 
+          label="Stock Garches" 
+          value={stats.totalStockGarches}
+          color="blue"
+        />
+        <StatCard 
+          label="Valeur totale" 
+          value={`${stats.stockValue} €`}
+          color="green"
         />
       </div>
 
-      {/* Onglets */}
-      <div className="bg-white rounded-xl shadow-lg">
-        <div className="border-b border-gray-200">
-          <div className="flex">
+      {/* Carte de recherche et filtres */}
+      <div className="bg-white rounded-xl shadow-lg p-4 space-y-4">
+        <div className="flex items-center gap-4">
+          <div className="flex-1 relative">
+            <MagnifyingGlassIcon className="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Rechercher par nom, référence ou code-barre..."
+              className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+
+          <div className="flex bg-gray-100 rounded-lg p-1">
             <button
-              onClick={() => setActiveTab('products')}
-              className={`px-6 py-4 font-semibold transition ${
-                activeTab === 'products'
-                  ? 'text-blue-600 border-b-2 border-blue-600'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
+              onClick={() => setViewMode('list')}
+              className={`p-2 rounded ${viewMode === 'list' ? 'bg-white shadow' : ''}`}
+              title="Vue liste"
             >
-              Catalogue Produits
+              <ListBulletIcon className="w-5 h-5" />
             </button>
             <button
-              onClick={() => setActiveTab('stock')}
-              className={`px-6 py-4 font-semibold transition ${
-                activeTab === 'stock'
-                  ? 'text-blue-600 border-b-2 border-blue-600'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
+              onClick={() => setViewMode('grid')}
+              className={`p-2 rounded ${viewMode === 'grid' ? 'bg-white shadow' : ''}`}
+              title="Vue grille"
             >
-              Gestion du Stock
+              <ViewColumnsIcon className="w-5 h-5" />
             </button>
           </div>
         </div>
 
-        {/* Barre de recherche et filtres */}
-        <div className="p-4 space-y-4">
-          <div className="flex items-center gap-4">
-            <div className="flex-1 relative">
-              <MagnifyingGlassIcon className="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Rechercher par nom, référence ou code-barre..."
-                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-
-            <div className="flex bg-gray-100 rounded-lg p-1">
-              <button
-                onClick={() => setViewMode('list')}
-                className={`p-2 rounded ${viewMode === 'list' ? 'bg-white shadow' : ''}`}
-              >
-                <ListBulletIcon className="w-5 h-5" />
-              </button>
-              <button
-                onClick={() => setViewMode('grid')}
-                className={`p-2 rounded ${viewMode === 'grid' ? 'bg-white shadow' : ''}`}
-              >
-                <ViewColumnsIcon className="w-5 h-5" />
-              </button>
-            </div>
+        {/* Filtres unifiés */}
+        <div className="flex items-center gap-4 flex-wrap">
+          <div className="flex items-center gap-2">
+            <FunnelIcon className="w-5 h-5 text-gray-400" />
+            <span className="text-sm font-medium text-gray-700">Filtres:</span>
           </div>
+          
+          <select
+            value={filters.productType}
+            onChange={(e) => setFilters({...filters, productType: e.target.value})}
+            className="px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="all">Tous les types</option>
+            <option value="bike">Vélos</option>
+            <option value="accessory">Accessoires</option>
+            <option value="part">Pièces détachées</option>
+            <option value="prestation">Prestations</option>
+            <option value="occasion">Occasions</option>
+          </select>
 
-          {/* Filtres selon l'onglet actif */}
-          {activeTab === 'products' ? (
-            <div className="flex items-center gap-4 flex-wrap">
-              <div className="flex items-center gap-2">
-                <FunnelIcon className="w-5 h-5 text-gray-400" />
-                <span className="text-sm font-medium text-gray-700">Filtres:</span>
-              </div>
-              
-              <select
-                value={filters.productType}
-                onChange={(e) => setFilters({...filters, productType: e.target.value})}
-                className="px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="all">Tous les types</option>
-                <option value="bike">Vélos</option>
-                <option value="accessory">Accessoires</option>
-                <option value="part">Pièces détachées</option>
-                <option value="prestation">Prestations</option>
-                <option value="occasion">Occasions</option>
-              </select>
+          <select
+            value={filters.visibility}
+            onChange={(e) => setFilters({...filters, visibility: e.target.value})}
+            className="px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="all">Toutes visibilités</option>
+            <option value="visible">Visibles</option>
+            <option value="hidden">Masqués</option>
+          </select>
 
-              <select
-                value={filters.visibility}
-                onChange={(e) => setFilters({...filters, visibility: e.target.value})}
-                className="px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="all">Toutes visibilités</option>
-                <option value="visible">Visibles</option>
-                <option value="hidden">Masqués</option>
-              </select>
+          <select
+            value={filters.brand}
+            onChange={(e) => setFilters({...filters, brand: e.target.value})}
+            className="px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="all">Toutes les marques</option>
+            {brands.map(brand => (
+              <option key={brand} value={brand}>{brand}</option>
+            ))}
+          </select>
 
-              <select
-                value={filters.brand}
-                onChange={(e) => setFilters({...filters, brand: e.target.value})}
-                className="px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="all">Toutes les marques</option>
-                {brands.map(brand => (
-                  <option key={brand} value={brand}>{brand}</option>
-                ))}
-              </select>
+          <select
+            value={filters.stockLevel}
+            onChange={(e) => setFilters({...filters, stockLevel: e.target.value})}
+            className="px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="all">Tous les niveaux de stock</option>
+            <option value="out">Rupture de stock</option>
+            <option value="low">Stock faible</option>
+            <option value="normal">Stock normal</option>
+          </select>
 
-              {(filters.productType !== 'all' || filters.visibility !== 'all' || filters.brand !== 'all') && (
-                <button
-                  onClick={() => setFilters({ productType: 'all', visibility: 'all', brand: 'all'})}
-                  className="text-sm text-blue-600 hover:text-blue-700 font-medium"
-                >
-                  Réinitialiser
-                </button>
-              )}
-            </div>
-          ) : (
-            <div className="flex items-center gap-4 flex-wrap">
-              <div className="flex items-center gap-2">
-                <FunnelIcon className="w-5 h-5 text-gray-400" />
-                <span className="text-sm font-medium text-gray-700">Filtres:</span>
-              </div>
-              
-              <select
-                value={stockFilters.store}
-                onChange={(e) => setStockFilters({...stockFilters, store: e.target.value})}
-                className="px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="all">Tous les magasins</option>
-                <option value="ville_avray">Ville d'Avray</option>
-                <option value="garches">Garches</option>
-              </select>
+          <select
+            value={filters.store}
+            onChange={(e) => setFilters({...filters, store: e.target.value})}
+            className="px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="all">Tous les magasins</option>
+            <option value="ville_avray">Ville d'Avray uniquement</option>
+            <option value="garches">Garches uniquement</option>
+          </select>
 
-              <select
-                value={stockFilters.stockLevel}
-                onChange={(e) => setStockFilters({...stockFilters, stockLevel: e.target.value})}
-                className="px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="all">Tous les niveaux</option>
-                <option value="out">Rupture de stock</option>
-                <option value="low">Stock faible</option>
-                <option value="normal">Stock normal</option>
-              </select>
-
-              {(stockFilters.store !== 'all' || stockFilters.stockLevel !== 'all') && (
-                <button
-                  onClick={() => setStockFilters({ store: 'all', stockLevel: 'all' })}
-                  className="text-sm text-blue-600 hover:text-blue-700 font-medium"
-                >
-                  Réinitialiser
-                </button>
-              )}
-            </div>
+          {hasActiveFilters && (
+            <button
+              onClick={() => setFilters({ 
+                productType: 'all', 
+                visibility: 'all', 
+                brand: 'all',
+                stockLevel: 'all',
+                store: 'all'
+              })}
+              className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+            >
+              Réinitialiser tous les filtres
+            </button>
           )}
         </div>
       </div>
@@ -392,92 +373,78 @@ export default function Products() {
               product={product} 
               onToggleVisibility={toggleVisibility}
               onEdit={handleEdit}
-              showStockDetails={activeTab === 'stock'}
             />
           ))}
         </div>
       ) : (
         <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Référence</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nom</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Prix TTC</th>
-                {activeTab === 'stock' ? (
-                  <>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ville d'Avray</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Garches</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total</th>
-                  </>
-                ) : (
-                  <>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Stock</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Visible</th>
-                  </>
-                )}
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {filteredProducts.map((product) => (
-                <tr key={product.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap font-medium">{product.reference}</td>
-                  <td className="px-6 py-4">{product.name}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">{product.price_ttc} €</td>
-                  {activeTab === 'stock' ? (
-                    <>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="font-semibold">{product.stock_ville_avray}</span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="font-semibold">{product.stock_garches}</span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                          product.total_stock === 0 ? 'bg-red-100 text-red-800' :
-                          product.is_low_stock ? 'bg-yellow-100 text-yellow-800' : 
-                          'bg-green-100 text-green-800'
-                        }`}>
-                          {product.total_stock}
-                        </span>
-                      </td>
-                    </>
-                  ) : (
-                    <>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                          product.is_low_stock ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
-                        }`}>
-                          {product.total_stock}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <button
-                          onClick={() => toggleVisibility(product.id, product.is_visible)}
-                          className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                            product.is_visible ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                          }`}
-                        >
-                          {product.is_visible ? 'Visible' : 'Masqué'}
-                        </button>
-                      </td>
-                    </>
-                  )}
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex gap-2">
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Référence</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nom</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Marque</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Prix TTC</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ville d'Avray</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Garches</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Visible</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {filteredProducts.map((product) => (
+                  <tr key={product.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-900">{product.reference}</td>
+                    <td className="px-6 py-4 text-gray-900">{product.name}</td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="text-xs px-2 py-1 bg-gray-100 text-gray-700 rounded-full">
+                        {product.product_type}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-gray-600">{product.brand || '-'}</td>
+                    <td className="px-6 py-4 whitespace-nowrap font-semibold text-gray-900">{product.price_ttc} €</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-center">
+                      <span className="font-semibold text-gray-700">{product.stock_ville_avray}</span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-center">
+                      <span className="font-semibold text-gray-700">{product.stock_garches}</span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
+                        product.total_stock === 0 ? 'bg-red-100 text-red-800' :
+                        product.is_low_stock ? 'bg-yellow-100 text-yellow-800' : 
+                        'bg-green-100 text-green-800'
+                      }`}>
+                        {product.total_stock}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <button
+                        onClick={() => toggleVisibility(product.id, product.is_visible)}
+                        className={`px-3 py-1 rounded-full text-sm font-semibold ${
+                          product.is_visible ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                        }`}
+                      >
+                        {product.is_visible ? 'Visible' : 'Masqué'}
+                      </button>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
                       <button 
                         onClick={() => handleEdit(product)}
                         className="text-blue-600 hover:text-blue-700 font-medium"
+                        title="Modifier"
                       >
                         <PencilIcon className="w-5 h-5" />
                       </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
@@ -485,6 +452,20 @@ export default function Products() {
       {!loading && filteredProducts.length === 0 && (
         <div className="bg-white rounded-xl shadow-lg p-12 text-center">
           <p className="text-gray-500 text-lg">Aucun produit ne correspond à vos critères</p>
+          {hasActiveFilters && (
+            <button
+              onClick={() => setFilters({ 
+                productType: 'all', 
+                visibility: 'all', 
+                brand: 'all',
+                stockLevel: 'all',
+                store: 'all'
+              })}
+              className="mt-4 text-blue-600 hover:text-blue-700 font-medium"
+            >
+              Réinitialiser les filtres
+            </button>
+          )}
         </div>
       )}
 
@@ -496,14 +477,19 @@ export default function Products() {
   );
 }
 
-// Composant ProductCard pour la vue grille
-function ProductCard({ product, onToggleVisibility, onEdit, showStockDetails }) {
+// Composant ProductCard pour la vue grille avec toutes les infos
+function ProductCard({ product, onToggleVisibility, onEdit }) {
   return (
     <div className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition">
       <div className="p-6">
         <div className="flex items-start justify-between mb-4">
           <div className="flex-1">
-            <span className="text-xs font-semibold text-gray-500 uppercase">{product.reference}</span>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-xs font-semibold text-gray-500 uppercase">{product.reference}</span>
+              <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full">
+                {product.product_type}
+              </span>
+            </div>
             <h3 className="text-lg font-bold text-gray-900 mt-1">{product.name}</h3>
             {product.brand && <p className="text-sm text-gray-600 mt-1">{product.brand}</p>}
           </div>
@@ -523,37 +509,26 @@ function ProductCard({ product, onToggleVisibility, onEdit, showStockDetails }) 
             <span className="text-lg font-bold text-gray-900">{product.price_ttc} €</span>
           </div>
 
-          {showStockDetails ? (
-            <div className="space-y-2 pt-3 border-t">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-600">Ville d'Avray</span>
-                <span className="font-semibold">{product.stock_ville_avray}</span>
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-600">Garches</span>
-                <span className="font-semibold">{product.stock_garches}</span>
-              </div>
-              <div className="flex items-center justify-between pt-2 border-t">
-                <span className="text-sm font-medium text-gray-700">Total</span>
-                <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                  product.total_stock === 0 ? 'bg-red-100 text-red-800' :
-                  product.is_low_stock ? 'bg-yellow-100 text-yellow-800' : 
-                  'bg-green-100 text-green-800'
-                }`}>
-                  {product.total_stock}
-                </span>
-              </div>
+          <div className="pt-3 border-t space-y-2">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-gray-600">📍 Ville d'Avray</span>
+              <span className="font-semibold text-gray-900">{product.stock_ville_avray}</span>
             </div>
-          ) : (
-            <div className="flex items-center justify-between pt-3 border-t">
-              <span className="text-sm text-gray-600">Stock</span>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-gray-600">📍 Garches</span>
+              <span className="font-semibold text-gray-900">{product.stock_garches}</span>
+            </div>
+            <div className="flex items-center justify-between pt-2 border-t">
+              <span className="text-sm font-medium text-gray-700">Stock Total</span>
               <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                product.is_low_stock ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
+                product.total_stock === 0 ? 'bg-red-100 text-red-800' :
+                product.is_low_stock ? 'bg-yellow-100 text-yellow-800' : 
+                'bg-green-100 text-green-800'
               }`}>
                 {product.total_stock}
               </span>
             </div>
-          )}
+          </div>
         </div>
 
         <div className="flex gap-2 mt-6 pt-4 border-t">
