@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { productsAPI, categoriesAPI } from '../services/api';
+import { productsAPI } from '../services/api';
 import toast from 'react-hot-toast';
 import { 
   MagnifyingGlassIcon, 
@@ -41,7 +41,6 @@ function StatCard({ label, value, icon: Icon, color = "blue" }) {
 
 export default function Products() {
   const [products, setProducts] = useState([]);
-  const [categories, setCategories] = useState([]);
   const [activeTab, setActiveTab] = useState('products'); // 'products' ou 'stock'
   const [viewMode, setViewMode] = useState('list');
   const [searchQuery, setSearchQuery] = useState('');
@@ -55,8 +54,7 @@ export default function Products() {
     store: 'all',
     productType: 'all',
     visibility: 'all',
-    brand: 'all',
-    category: 'all'
+    brand: 'all'
   });
 
   // Filtres pour l'onglet Stock
@@ -77,27 +75,9 @@ export default function Products() {
     }
   }, []);
 
-  const loadCategories = React.useCallback(async () => {
-    try {
-      const response = await categoriesAPI.getAll();
-      setCategories(response.data.results || response.data);
-    } catch (error) {
-      console.error('Erreur de chargement des catégories');
-      // Extraction des catégories depuis les produits en fallback
-      const uniqueCategories = [...new Set(products.map(p => p.category?.name).filter(Boolean))];
-      setCategories(uniqueCategories.map(name => ({ name })));
-    }
-  }, [products]);
-
   useEffect(() => {
     loadProducts();
   }, [loadProducts]);
-
-  useEffect(() => {
-    if (products.length > 0) {
-      loadCategories();
-    }
-  }, [products, loadCategories]);
 
   // Calcul des statistiques
   const stats = {
@@ -137,9 +117,6 @@ export default function Products() {
       }
       if (filters.brand !== 'all') {
         filtered = filtered.filter(p => p.brand === filters.brand);
-      }
-      if (filters.category !== 'all') {
-        filtered = filtered.filter(p => p.category?.name === filters.category);
       }
     } else {
       // Filtres de l'onglet Stock
@@ -352,22 +329,9 @@ export default function Products() {
                 ))}
               </select>
 
-              <select
-                value={filters.category}
-                onChange={(e) => setFilters({...filters, category: e.target.value})}
-                className="px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="all">Toutes les catégories</option>
-                {categories.map(category => (
-                  <option key={category.id || category.name} value={category.name}>
-                    {category.name}
-                  </option>
-                ))}
-              </select>
-
-              {(filters.productType !== 'all' || filters.visibility !== 'all' || filters.brand !== 'all' || filters.category !== 'all') && (
+              {(filters.productType !== 'all' || filters.visibility !== 'all' || filters.brand !== 'all') && (
                 <button
-                  onClick={() => setFilters({ productType: 'all', visibility: 'all', brand: 'all', category: 'all'})}
+                  onClick={() => setFilters({ productType: 'all', visibility: 'all', brand: 'all'})}
                   className="text-sm text-blue-600 hover:text-blue-700 font-medium"
                 >
                   Réinitialiser
@@ -525,8 +489,8 @@ export default function Products() {
       )}
 
       {/* Modales */}
-      {showAddModal && <ProductModal onClose={() => setShowAddModal(false)} onSave={loadProducts} categories={categories} />}
-      {showEditModal && <ProductModal product={selectedProduct} onClose={() => setShowEditModal(false)} onSave={loadProducts} categories={categories} />}
+      {showAddModal && <ProductModal onClose={() => setShowAddModal(false)} onSave={loadProducts} />}
+      {showEditModal && <ProductModal product={selectedProduct} onClose={() => setShowEditModal(false)} onSave={loadProducts} />}
       
     </div>
   );
@@ -607,7 +571,7 @@ function ProductCard({ product, onToggleVisibility, onEdit, showStockDetails }) 
 }
 
 // Modal d'ajout/édition de produit
-function ProductModal({ product, onClose, onSave, categories }) {
+function ProductModal({ product, onClose, onSave }) {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     reference: product?.reference || '',
@@ -744,23 +708,6 @@ function ProductModal({ product, onClose, onSave, categories }) {
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
               />
             </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Catégorie</label>
-            <select
-              name="category"
-              value={formData.category}
-              onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">Aucune catégorie</option>
-              {categories.map(category => (
-                <option key={category.id || category.name} value={category.id}>
-                  {category.name}
-                </option>
-              ))}
-            </select>
           </div>
 
           <div>
