@@ -4,6 +4,10 @@ from django.db import transaction
 from .models import Order, OrderItem
 from .serializers import OrderSerializer
 from products.models import Product
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 class OrderViewSet(viewsets.ModelViewSet):
     queryset = Order.objects.all()
@@ -12,9 +16,9 @@ class OrderViewSet(viewsets.ModelViewSet):
     
     def create(self, request, *args, **kwargs):
         # Debug: afficher les données reçues
-        print("===== DONNÉES REÇUES =====")
-        print(request.data)
-        print("===========================")
+        logger.info("===== DONNÉES REÇUES =====")
+        logger.info(request.data)
+        logger.info("===========================")
         
         try:
             with transaction.atomic():
@@ -27,6 +31,11 @@ class OrderViewSet(viewsets.ModelViewSet):
                         status=status.HTTP_400_BAD_REQUEST
                     )
                 
+                # 🆕 Extraire les notes (optionnel)
+                notes = request.data.get('notes', None)
+                if notes:
+                    notes = notes.strip() or None
+                
                 # Créer la commande
                 order = Order.objects.create(
                     client_id=request.data['client'],
@@ -34,7 +43,10 @@ class OrderViewSet(viewsets.ModelViewSet):
                     store=request.data['store'],
                     payment_method=request.data.get('payment_method', 'cash'),
                     installments=request.data.get('installments', 1),
+                    notes=notes,  # 🆕 Ajout des notes
                 )
+                
+                logger.info(f"Commande créée: ID={order.id}, Notes={order.notes}")
                 
                 # Créer les items et calculer les totaux
                 subtotal_ht = 0
@@ -70,16 +82,35 @@ class OrderViewSet(viewsets.ModelViewSet):
                 order.status = 'completed'
                 order.save()
                 
+                logger.info(f"Totaux calculés: HT={subtotal_ht}, TVA={total_tva}, TTC={order.total_ttc}")
+                
                 # Créer la facture automatiquement
                 from invoices.models import Invoice
                 invoice = Invoice.objects.create(order=order)
                 
+                logger.info(f"Facture créée: {invoice.invoice_number}")
+                
                 serializer = self.get_serializer(order)
                 return Response(serializer.data, status=status.HTTP_201_CREATED)
                 
+        except Product.DoesNotExist:
+            logger.error("Produit non trouvé")
+            return Response(
+                {'error': 'Produit non trouvé'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except KeyError as e:
+            logger.error(f"Champ manquant: {str(e)}")
+            return Response(
+                {'error': f'Champ manquant: {str(e)}'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
         except Exception as e:
-            print("===== ERREUR =====")
-            print("Type:", type(e).__name__)
-            print("Message:", str(e))
-            print("==================")
-            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            logger.error("===== ERREUR =====")
+            logger.error(f"Type: {type(e).__name__}")
+            logger.error(f"Message: {str(e)}")
+            logger.error("==================")
+            return Response(
+                {'error': str(e)}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
