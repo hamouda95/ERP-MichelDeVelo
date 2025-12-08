@@ -4,7 +4,7 @@ from django.utils import timezone
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
 from reportlab.lib.units import cm, mm
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_RIGHT, TA_LEFT
 from io import BytesIO
@@ -47,14 +47,8 @@ class Invoice(models.Model):
         super().save(*args, **kwargs)
     
     def generate_invoice_number(self):
-        """
-        Génère un numéro de facture au format:
-        A04112025-000001 pour Ville d'Avray
-        G04112025-000001 pour Garches
-        """
         today = timezone.now()
         date_str = today.strftime('%d%m%Y')
-        
         prefix = 'A' if self.order.store == 'ville_avray' else 'G'
         
         last_invoice = Invoice.objects.filter(
@@ -70,7 +64,6 @@ class Invoice(models.Model):
         return f"{prefix}{date_str}-{new_number:07d}"
     
     def _get_store_info(self):
-        """Retourne les informations du magasin"""
         store_addresses = {
             'ville_avray': {
                 'name': "Ville d'Avray",
@@ -88,14 +81,8 @@ class Invoice(models.Model):
         return store_addresses.get(self.order.store, store_addresses['ville_avray'])
     
     def generate_receipt(self):
-        """
-        Génère un TICKET DE CAISSE format 80mm (thermique)
-        Format compact pour impression rapide
-        """
         try:
             buffer = BytesIO()
-            
-            # Taille ticket: 80mm de large
             width = 80 * mm
             height = 297 * mm
             
@@ -111,7 +98,6 @@ class Invoice(models.Model):
             elements = []
             styles = getSampleStyleSheet()
             
-            # Styles pour ticket
             receipt_title = ParagraphStyle(
                 'ReceiptTitle',
                 parent=styles['Normal'],
@@ -145,32 +131,13 @@ class Invoice(models.Model):
                 alignment=TA_LEFT
             )
             
-            # === EN-TÊTE ===
             store_info = self._get_store_info()
             
             elements.append(Paragraph("================================", receipt_normal))
             
-            # === LOGO + TEXTE "MICHEL DE VELO" ===
-            # IMPORTANT: Stocker le logo localement dans /static/ ou /media/ pour éviter les dépendances réseau
-            logo_url = "https://static.wixstatic.com/media/985974_816db9a0e3d348da86b214669dbf3d64~mv2.png/v1/fit/w_2500,h_1330,al_c/985974_816db9a0e3d348da86b214669dbf3d64~mv2.png"
-            
-            try:
-                logo = Image(logo_url, width=12*mm, height=12*mm)
-                title = Paragraph("<b>MICHEL DE VELO</b>", receipt_title)
-                
-                title_table = Table([[logo, title]], colWidths=[16*mm, 50*mm])
-                title_table.setStyle(TableStyle([
-                    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-                    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                    ('LEFTPADDING', (0, 0), (-1, -1), 0),
-                    ('RIGHTPADDING', (0, 0), (-1, -1), 3),
-                    ('TOPPADDING', (0, 0), (-1, -1), 0),
-                    ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
-                ]))
-                elements.append(title_table)
-            except Exception as e:
-                logger.warning(f"Impossible de charger le logo: {e}")
-                elements.append(Paragraph("<b>MICHEL DE VELO</b>", receipt_title))
+            # Logo désactivé - Fix timeout 502
+            logger.info("Génération ticket sans logo")
+            elements.append(Paragraph("<b>MICHEL DE VELO</b>", receipt_title))
 
             elements.append(Paragraph(f"<b>{store_info['name']}</b>", receipt_normal))
             elements.append(Paragraph(store_info['address'], receipt_normal))
@@ -179,13 +146,11 @@ class Invoice(models.Model):
             elements.append(Paragraph("================================", receipt_normal))
             elements.append(Spacer(1, 3*mm))
             
-            # === TICKET DE CAISSE ===
             elements.append(Paragraph(f"<b>TICKET N° {self.invoice_number}</b>", receipt_moyen))
             elements.append(Paragraph(self.invoice_date.strftime('%d/%m/%Y %H:%M'), receipt_normal))
             elements.append(Paragraph("--------------------------------", receipt_normal))
             elements.append(Spacer(1, 2*mm))
             
-            # === ARTICLES ===
             for item in self.order.items.all():
                 elements.append(Paragraph(f"<b>{item.product.name}</b>", receipt_item))
                 detail_line = f"{item.quantity} x {item.unit_price_ttc:.2f}€ = {item.subtotal_ttc:.2f}€"
@@ -195,7 +160,6 @@ class Invoice(models.Model):
             elements.append(Paragraph("--------------------------------", receipt_normal))
             elements.append(Spacer(1, 2*mm))
             
-            # === TOTAUX ===
             totals_style = ParagraphStyle(
                 'Totals',
                 parent=styles['Normal'],
@@ -220,7 +184,6 @@ class Invoice(models.Model):
             elements.append(Paragraph("================================", receipt_normal))
             elements.append(Spacer(1, 2*mm))
             
-            # === MOYEN DE PAIEMENT ===
             payment_methods = {
                 'cash': 'ESPÈCES',
                 'card': 'CARTE BANCAIRE',
@@ -234,7 +197,6 @@ class Invoice(models.Model):
             elements.append(Spacer(1, 3*mm))
             elements.append(Paragraph("--------------------------------", receipt_normal))
             
-            # === CLIENT ===
             client = self.order.client
             elements.append(Paragraph(f"Client: {client.first_name} {client.last_name}", receipt_item))
             if client.email:
@@ -246,25 +208,19 @@ class Invoice(models.Model):
             elements.append(Paragraph("À bientôt !", receipt_normal))
             elements.append(Paragraph("================================", receipt_normal))
             
-            # Construire le PDF
             doc.build(elements)
             buffer.seek(0)
             
-            # Sauvegarder
             filename = f'ticket_{self.invoice_number}.pdf'
             self.receipt_pdf.save(filename, ContentFile(buffer.read()), save=False)
             
             return buffer
             
         except Exception as e:
-            logger.error(f"Erreur lors de la génération du ticket: {e}")
+            logger.error(f"Erreur génération ticket: {e}")
             raise
     
     def generate_invoice(self):
-        """
-        Génère une FACTURE COMPLÈTE format A4
-        Document officiel avec toutes les mentions légales
-        """
         try:
             buffer = BytesIO()
             doc = SimpleDocTemplate(
@@ -278,7 +234,6 @@ class Invoice(models.Model):
             elements = []
             styles = getSampleStyleSheet()
             
-            # ============ EN-TÊTE ============
             title_style = ParagraphStyle(
                 'CustomTitle',
                 parent=styles['Heading1'],
@@ -289,28 +244,10 @@ class Invoice(models.Model):
                 fontName='Helvetica-Bold'
             )
             
-            # === LOGO + TEXTE "MICHEL DE VELO" ===
-            logo_url = "https://static.wixstatic.com/media/985974_816db9a0e3d348da86b214669dbf3d64~mv2.png/v1/fit/w_2500,h_1330,al_c/985974_816db9a0e3d348da86b214669dbf3d64~mv2.png"
+            # Logo désactivé - Fix timeout 502
+            logger.info("Génération facture sans logo")
+            elements.append(Paragraph("<b>MICHEL DE VELO</b>", title_style))
 
-            try:
-                logo = Image(logo_url, width=14*mm, height=14*mm)
-                title = Paragraph("<b>MICHEL DE VELO</b>", title_style)
-
-                title_table = Table([[logo, title]], colWidths=[16*mm, 100*mm])
-                title_table.setStyle(TableStyle([
-                    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-                    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                    ('LEFTPADDING', (0, 0), (-1, -1), 0),
-                    ('RIGHTPADDING', (0, 0), (-1, -1), 3),
-                    ('TOPPADDING', (0, 0), (-1, -1), 0),
-                    ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
-                ]))
-                elements.append(title_table)
-            except Exception as e:
-                logger.warning(f"Impossible de charger le logo: {e}")
-                elements.append(Paragraph("<b>MICHEL DE VELO</b>", title_style))
-
-            # Informations du magasin
             store_info = self._get_store_info()
             
             store_style = ParagraphStyle(
@@ -332,7 +269,6 @@ class Invoice(models.Model):
             elements.append(Paragraph(store_text, store_style))
             elements.append(Spacer(1, 0.8*cm))
             
-            # ============ NUMÉRO DE FACTURE ============
             invoice_header_style = ParagraphStyle(
                 'InvoiceHeader',
                 parent=styles['Heading2'],
@@ -346,7 +282,6 @@ class Invoice(models.Model):
             
             elements.append(Paragraph(f"FACTURE N° {self.invoice_number}", invoice_header_style))
             
-            # Date
             date_style = ParagraphStyle(
                 'DateStyle',
                 parent=styles['Normal'],
@@ -362,7 +297,6 @@ class Invoice(models.Model):
             elements.append(Paragraph(date_text, date_style))
             elements.append(Spacer(1, 0.5*cm))
             
-            # ============ INFORMATIONS CLIENT ============
             client = self.order.client
             client_box_data = [
                 [Paragraph('<b>FACTURÉ À:</b>', styles['Normal'])],
@@ -389,7 +323,6 @@ class Invoice(models.Model):
             elements.append(client_table)
             elements.append(Spacer(1, 1*cm))
             
-            # ============ TABLEAU DES ARTICLES ============
             table_header_style = ParagraphStyle(
                 'TableHeader',
                 parent=styles['Normal'],
@@ -437,7 +370,6 @@ class Invoice(models.Model):
             elements.append(table)
             elements.append(Spacer(1, 0.8*cm))
             
-            # ============ TOTAUX ============
             payment_methods = {
                 'cash': 'Espèces',
                 'card': 'Carte bancaire',
@@ -476,7 +408,6 @@ class Invoice(models.Model):
             ]))
             elements.append(totals_table)
             
-            # ============ PIED DE PAGE ============
             elements.append(Spacer(1, 1.5*cm))
             
             notes_style = ParagraphStyle(
@@ -500,29 +431,25 @@ class Invoice(models.Model):
             doc.build(elements)
             buffer.seek(0)
             
-            # Sauvegarder
             filename = f'facture_{self.invoice_number}.pdf'
             self.invoice_pdf.save(filename, ContentFile(buffer.read()), save=False)
             
             return buffer
             
         except Exception as e:
-            logger.error(f"Erreur lors de la génération de la facture: {e}")
+            logger.error(f"Erreur génération facture: {e}")
             raise
     
     def send_invoice_email(self):
-        """Envoie la facture et le ticket PDF au client par email"""
         try:
-            # Vérifications préalables
             if not self.order.client.email:
-                logger.warning(f"Aucun email pour le client de la facture {self.invoice_number}")
+                logger.warning(f"Aucun email pour {self.invoice_number}")
                 return False
             
             if not self.invoice_pdf or not self.receipt_pdf:
-                logger.warning(f"PDFs manquants pour la facture {self.invoice_number}")
+                logger.warning(f"PDFs manquants pour {self.invoice_number}")
                 return False
             
-            # Préparation de l'email
             client_name = self.order.client.full_name if hasattr(self.order.client, 'full_name') else self.order.client.first_name
             
             subject = f"Votre facture {self.invoice_number} - Michel de Vélo"
@@ -541,42 +468,32 @@ class Invoice(models.Model):
                 to=[self.order.client.email]
             )
             
-            # Attacher les fichiers PDF
             email.attach_file(self.invoice_pdf.path)
             email.attach_file(self.receipt_pdf.path)
             
-            # Envoi
             email.send(fail_silently=False)
-            logger.info(f"Email envoyé avec succès pour la facture {self.invoice_number}")
+            logger.info(f"Email envoyé pour {self.invoice_number}")
             return True
             
         except Exception as e:
-            logger.error(f"Erreur lors de l'envoi de l'email pour la facture {self.invoice_number}: {e}")
+            logger.error(f"Erreur envoi email {self.invoice_number}: {e}")
             return False
     
     def generate_both(self):
-        """
-        Génère le ticket ET la facture, puis envoie par email
-        Ordre important : génération AVANT envoi
-        """
         try:
-            # 1. Générer les documents
             self.generate_receipt()
             self.generate_invoice()
-            
-            # 2. Sauvegarder l'instance (les PDFs sont déjà attachés)
             self.save()
             
-            # 3. Envoyer l'email (après que les PDFs soient générés)
             email_sent = self.send_invoice_email()
             
             if email_sent:
-                logger.info(f"Facture {self.invoice_number} générée et envoyée avec succès")
+                logger.info(f"Facture {self.invoice_number} générée et envoyée")
             else:
                 logger.warning(f"Facture {self.invoice_number} générée mais email non envoyé")
             
             return True
             
         except Exception as e:
-            logger.error(f"Erreur lors de la génération complète de la facture {self.invoice_number}: {e}")
+            logger.error(f"Erreur génération {self.invoice_number}: {e}")
             raise
