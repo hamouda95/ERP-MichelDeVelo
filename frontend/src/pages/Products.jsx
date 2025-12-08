@@ -78,7 +78,10 @@ export default function Products() {
     outOfStock: products.filter(p => p.total_stock === 0).length,
     lowStock: products.filter(p => p.is_low_stock && p.total_stock > 0).length,
     activeProducts: products.filter(p => p.is_visible).length,
-    stockValue: products.reduce((sum, p) => sum + (p.price_ttc * p.total_stock), 0).toFixed(2),
+    stockValue: products.reduce(
+  (sum, p) => sum + (p.price_ttc * (p.stock_ville_avray + p.stock_garches)),
+  0
+).toFixed(2),
     totalStockVilleAvray: products.reduce((sum, p) => sum + p.stock_ville_avray, 0),
     totalStockGarches: products.reduce((sum, p) => sum + p.stock_garches, 0)
   };
