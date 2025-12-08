@@ -325,6 +325,9 @@ export default function Products() {
             ))}
           </select>
 
+          {/* 
+          
+          **** FILTRE NIVEAU STOCK ****
           <select
             value={filters.stockLevel}
             onChange={(e) => setFilters({...filters, stockLevel: e.target.value})}
@@ -335,7 +338,8 @@ export default function Products() {
             <option value="low">Stock faible</option>
             <option value="normal">Stock normal</option>
           </select>
-
+          
+          **** FILTRE MAGASINS ****
           <select
             value={filters.store}
             onChange={(e) => setFilters({...filters, store: e.target.value})}
@@ -344,7 +348,9 @@ export default function Products() {
             <option value="all">Tous les magasins</option>
             <option value="ville_avray">Ville d'Avray uniquement</option>
             <option value="garches">Garches uniquement</option>
-          </select>
+          </select> 
+          
+          */}
 
           {hasActiveFilters && (
             <button
@@ -837,17 +843,6 @@ function ProductModal({ product, onClose, onSave }) {
                 className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
               />
               <label className="text-sm font-medium text-gray-700">Produit visible</label>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                name="is_active"
-                checked={formData.is_active}
-                onChange={handleChange}
-                className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
-              />
-              <label className="text-sm font-medium text-gray-700">Produit actif</label>
             </div>
           </div>
 
