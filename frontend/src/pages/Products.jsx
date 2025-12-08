@@ -232,7 +232,7 @@ export default function Products() {
         />
         <StatCard 
           label="Stock faible" 
-          value={stats.lowStock}
+          value={stats.lowStockProducts.length}
           color="yellow"
         />
         <StatCard 
