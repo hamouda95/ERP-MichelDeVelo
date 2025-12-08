@@ -413,7 +413,7 @@ export default function Products() {
                       <span className="font-semibold text-gray-700">{product.stock_garches}</span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-center">
-                      <span className="font-semibold text-gray-900">{product.total_stock}</span>
+                      <span className="font-semibold text-gray-900">{product.stock_garches+product.stock_ville_avray}</span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <button
