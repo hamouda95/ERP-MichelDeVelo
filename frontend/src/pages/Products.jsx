@@ -412,14 +412,8 @@ export default function Products() {
                     <td className="px-6 py-4 whitespace-nowrap text-center">
                       <span className="font-semibold text-gray-700">{product.stock_garches}</span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                        product.total_stock === 0 ? 'bg-red-100 text-red-800' :
-                        product.is_low_stock ? 'bg-yellow-100 text-yellow-800' : 
-                        'bg-green-100 text-green-800'
-                      }`}>
-                        {product.total_stock}
-                      </span>
+                    <td className="px-6 py-4 whitespace-nowrap text-center">
+                      <span className="font-semibold text-gray-900">{product.total_stock}</span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <button
@@ -443,6 +437,29 @@ export default function Products() {
                   </tr>
                 ))}
               </tbody>
+              <tfoot className="bg-blue-50">
+                <tr>
+                  <td colSpan="5" className="px-6 py-4 text-right font-bold text-gray-900">
+                    TOTAL :
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-center">
+                    <span className="text-lg font-bold text-blue-600">
+                      {filteredProducts.reduce((sum, p) => sum + p.stock_ville_avray, 0)}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-center">
+                    <span className="text-lg font-bold text-blue-600">
+                      {filteredProducts.reduce((sum, p) => sum + p.stock_garches, 0)}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-center">
+                    <span className="text-lg font-bold text-blue-600">
+                      {filteredProducts.reduce((sum, p) => sum + p.total_stock, 0)}
+                    </span>
+                  </td>
+                  <td colSpan="2"></td>
+                </tr>
+              </tfoot>
             </table>
           </div>
         </div>
