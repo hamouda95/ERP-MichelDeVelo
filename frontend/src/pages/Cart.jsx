@@ -35,6 +35,7 @@ export default function Cart() {
   const [showCreateClientModal, setShowCreateClientModal] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('cash');
   const [installments, setInstallments] = useState(1);
+  const [orderComment, setOrderComment] = useState(''); // 🆕 État pour le commentaire
 
   const barcodeInputRef = useRef(null);
 
@@ -78,7 +79,7 @@ export default function Cart() {
       const resp = await productsAPI.searchByBarcode(barcode);
       const product = resp.data;
       if (!product.is_visible) {
-        toast.error("❌ Ce produit n’est plus disponible à la vente");
+        toast.error("❌ Ce produit n'est plus disponible à la vente");
         setBarcodeInput('');
         return;
       }
@@ -110,39 +111,32 @@ export default function Cart() {
     }
   }, [isScanning, selectedStore, addItem]);
 
-  /*const handleBarcodeKeyPress = (e) => {
+  const handleBarcodeKeyPress = (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      handleBarcodeSearch(barcodeInput);
+      const term = barcodeInput.trim().toLowerCase();
+
+      // 1️⃣ Vérifie s'il existe une correspondance locale
+      const localMatch = products.find(p =>
+        p.name.toLowerCase().includes(term) ||
+        p.reference.toLowerCase().includes(term) ||
+        (p.barcode && p.barcode.toLowerCase() === term)
+      );
+
+      if (localMatch) {
+        addItem(localMatch);
+        playSuccessBeep();
+        toast.success(`✅ ${localMatch.name} ajouté au panier`, { duration: 2000, icon: '🛒' });
+        setBarcodeInput('');
+        setTimeout(() => {
+          if (barcodeInputRef.current) barcodeInputRef.current.focus();
+        }, 100);
+      } else {
+        // 2️⃣ Sinon, tente la recherche par code-barre via l'API
+        handleBarcodeSearch(barcodeInput);
+      }
     }
-  };*/
-  const handleBarcodeKeyPress = (e) => {
-  if (e.key === 'Enter') {
-    e.preventDefault();
-    const term = barcodeInput.trim().toLowerCase();
-
-    // 1️⃣ Vérifie s’il existe une correspondance locale
-    const localMatch = products.find(p =>
-      p.name.toLowerCase().includes(term) ||
-      p.reference.toLowerCase().includes(term) ||
-      (p.barcode && p.barcode.toLowerCase() === term)
-    );
-
-    if (localMatch) {
-      addItem(localMatch);
-      playSuccessBeep();
-      toast.success(`✅ ${localMatch.name} ajouté au panier`, { duration: 2000, icon: '🛒' });
-      setBarcodeInput('');
-      setTimeout(() => {
-        if (barcodeInputRef.current) barcodeInputRef.current.focus();
-      }, 100);
-    } else {
-      // 2️⃣ Sinon, tente la recherche par code-barre via l’API
-      handleBarcodeSearch(barcodeInput);
-    }
-  }
-};
-
+  };
 
   const playSuccessBeep = () => {
     try {
@@ -197,6 +191,7 @@ export default function Cart() {
         })),
         payment_method: paymentMethod,
         installments: paymentMethod === 'installment' ? installments : 1,
+        comment: orderComment.trim() || null, // 🆕 Ajout du commentaire
       };
   
       const respOrder = await ordersAPI.create(orderData);
@@ -249,6 +244,7 @@ export default function Cart() {
       setBarcodeInput('');
       setPaymentMethod('cash');
       setInstallments(1);
+      setOrderComment(''); // 🆕 Réinitialisation du commentaire
       setTimeout(() => barcodeInputRef.current?.focus(), 500);
     } catch (error) {
       console.error('Erreur checkout:', error);
@@ -256,7 +252,7 @@ export default function Cart() {
     } finally {
       setLoading(false);
     }
-  }, [selectedClient, selectedStore, items, paymentMethod, installments, clearCart]);
+  }, [selectedClient, selectedStore, items, paymentMethod, installments, orderComment, clearCart]);
 
   const totalTTC = getTotal();
   const totalHT = getTotalHT();
@@ -377,6 +373,22 @@ export default function Cart() {
                 </button>
               </div>
             )}
+          </div>
+
+          {/* 🆕 Commentaire commande */}
+          <div className="bg-white rounded-xl shadow-lg p-6">
+            <h2 className="text-xl font-bold text-gray-900 mb-4">💬 Commentaire (optionnel)</h2>
+            <textarea
+              value={orderComment}
+              onChange={(e) => setOrderComment(e.target.value)}
+              placeholder="Ajoutez un commentaire pour cette commande (ex: instructions spéciales, remarques...)"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none transition"
+              rows="4"
+              maxLength="500"
+            />
+            <div className="mt-2 text-right text-sm text-gray-500">
+              {orderComment.length}/500 caractères
+            </div>
           </div>
 
           {/* Panier */}
@@ -530,8 +542,7 @@ export default function Cart() {
   );
 }
 
-// … (ClientSelectionModal & CreateClientModal restent équivalents à ce que tu avais, à refactorer si souhaité)
-
+// Modales (inchangées)
 
 function ClientSelectionModal({ clients, onSelect, onClose }) {
   const [search, setSearch] = useState('');
