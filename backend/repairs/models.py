@@ -29,18 +29,20 @@ class Repair(models.Model):
     # Numéro de référence auto-généré
     reference_number = models.CharField(max_length=30, unique=True, editable=False)
     
-    # Informations client
+    # Informations client (OBLIGATOIRE dans le front)
     client = models.ForeignKey(Client, on_delete=models.PROTECT, related_name='repairs')
     
     # Informations vélo
-    bike_brand = models.CharField(max_length=100, blank=True, default='', verbose_name="Marque")
+    # bike_brand = Produit déposé (OBLIGATOIRE dans le front)
+    bike_brand = models.CharField(max_length=100, verbose_name="Produit déposé")
     bike_model = models.CharField(max_length=200, blank=True, default='', verbose_name="Modèle du vélo")
     bike_serial_number = models.CharField(max_length=100, blank=True, default='', verbose_name="Numéro de série")
 
     # Détails réparation
-    description = models.TextField(blank=True, default='', verbose_name="Description du problème")
-    diagnosis = models.TextField(blank=True, verbose_name="Diagnostic")
-    notes = models.TextField(blank=True, verbose_name="Notes")
+    # description = Description du problème (OBLIGATOIRE dans le front)
+    description = models.TextField(verbose_name="Description du problème")
+    diagnosis = models.TextField(blank=True, default='', verbose_name="Diagnostic")
+    notes = models.TextField(blank=True, default='', verbose_name="Notes")
     
     # Dates
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Date de création")
@@ -49,8 +51,10 @@ class Repair(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     
     # Informations gestion
+    # store = Magasin (OBLIGATOIRE dans le front)
     store = models.CharField(max_length=20, choices=STORE_CHOICES)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    # priority = Priorité (OBLIGATOIRE dans le front avec défaut 'normal')
     priority = models.CharField(max_length=20, choices=PRIORITY_CHOICES, default='normal')
     assigned_to = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='assigned_repairs')
     
@@ -58,9 +62,11 @@ class Repair(models.Model):
     estimated_cost = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="Coût estimé")
     final_cost = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="Coût final")
     deposit_paid = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="Acompte versé")
+    # max_budget = Budget MAX (optionnel dans le front)
     max_budget = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, verbose_name="Budget maximum")
     
     # Pièces nécessaires (JSON field pour flexibilité)
+    # Format: [{"product": id, "product_name": "nom", "quantity": 1, "unit_price": 10.00}]
     parts_needed = models.JSONField(default=list, blank=True, verbose_name="Pièces nécessaires")
     
     # Métadonnées
@@ -86,8 +92,8 @@ class Repair(models.Model):
     def generate_reference_number(self):
         """
         Génère un numéro de référence au format:
-        REP-VA-20251207-001 pour Ville d'Avray
-        REP-GA-20251207-001 pour Garches
+        REP-VA-20251208-001 pour Ville d'Avray
+        REP-GA-20251208-001 pour Garches
         """
         from django.utils import timezone
 
