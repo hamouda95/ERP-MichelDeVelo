@@ -284,10 +284,13 @@ def generate_invoice(self):
             Paragraph(f'-{self.order.discount_amount:.2f} €', totals_style_value)
         ])
     
-    totals_data.append([
-        Paragraph('<b>TOTAL TTC</b>', total_final_style), 
-        Paragraph(f'<b>{self.order.total_ttc:.2f} €</b>', total_final_style)
-    ])
+    # CORRECTION: utiliser un Paragraph pour le total avec fond vert
+    total_ttc_paragraph = Paragraph(
+        f'<b>TOTAL TTC: {self.order.total_ttc:.2f} €</b>', 
+        total_final_style
+    )
+    
+    totals_data.append([total_ttc_paragraph, Paragraph('', totals_style_value)])
     
     totals_data.append([
         Paragraph(f'<font size="8">Mode de paiement: {payment_text}</font>', totals_style_label),
@@ -306,6 +309,7 @@ def generate_invoice(self):
         ('PADDING', (0, -2), (-1, -2), 12),
         ('TOPPADDING', (0, -2), (-1, -2), 10),
         ('BOTTOMPADDING', (0, -2), (-1, -2), 10),
+        ('ALIGN', (0, -2), (-1, -2), 'CENTER'),  # AJOUTÉ: centrer le total
         # Ligne mode de paiement
         ('BACKGROUND', (0, -1), (-1, -1), GRIS_CLAIR),
         ('SPAN', (0, -1), (-1, -1)),
