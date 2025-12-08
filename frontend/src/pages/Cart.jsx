@@ -35,7 +35,7 @@ export default function Cart() {
   const [showCreateClientModal, setShowCreateClientModal] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('cash');
   const [installments, setInstallments] = useState(1);
-  const [orderComment, setOrderComment] = useState(''); // 🆕 État pour le commentaire
+  const [orderNotes, setOrderNotes] = useState(''); // 🆕 État pour les notes
 
   const barcodeInputRef = useRef(null);
 
@@ -191,7 +191,7 @@ export default function Cart() {
         })),
         payment_method: paymentMethod,
         installments: paymentMethod === 'installment' ? installments : 1,
-        comment: orderComment.trim() || null, // 🆕 Ajout du commentaire
+        notes: orderNotes.trim() || null, // 🆕 Ajout des notes
       };
   
       const respOrder = await ordersAPI.create(orderData);
@@ -244,7 +244,7 @@ export default function Cart() {
       setBarcodeInput('');
       setPaymentMethod('cash');
       setInstallments(1);
-      setOrderComment(''); // 🆕 Réinitialisation du commentaire
+      setOrderNotes(''); // 🆕 Réinitialisation des notes
       setTimeout(() => barcodeInputRef.current?.focus(), 500);
     } catch (error) {
       console.error('Erreur checkout:', error);
@@ -252,7 +252,7 @@ export default function Cart() {
     } finally {
       setLoading(false);
     }
-  }, [selectedClient, selectedStore, items, paymentMethod, installments, orderComment, clearCart]);
+  }, [selectedClient, selectedStore, items, paymentMethod, installments, orderNotes, clearCart]);
 
   const totalTTC = getTotal();
   const totalHT = getTotalHT();
@@ -375,19 +375,19 @@ export default function Cart() {
             )}
           </div>
 
-          {/* 🆕 Commentaire commande */}
+          {/* 🆕 Notes commande */}
           <div className="bg-white rounded-xl shadow-lg p-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">💬 Commentaire (optionnel)</h2>
+            <h2 className="text-xl font-bold text-gray-900 mb-4">💬 Notes (optionnel)</h2>
             <textarea
-              value={orderComment}
-              onChange={(e) => setOrderComment(e.target.value)}
-              placeholder="Ajoutez un commentaire pour cette commande (ex: instructions spéciales, remarques...)"
+              value={orderNotes}
+              onChange={(e) => setOrderNotes(e.target.value)}
+              placeholder="Ajoutez des notes pour cette commande (ex: instructions spéciales, remarques...)"
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none transition"
               rows="4"
               maxLength="500"
             />
             <div className="mt-2 text-right text-sm text-gray-500">
-              {orderComment.length}/500 caractères
+              {orderNotes.length}/500 caractères
             </div>
           </div>
 
