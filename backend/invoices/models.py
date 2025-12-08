@@ -2,6 +2,7 @@ def generate_invoice(self):
     """
     Génère une FACTURE COMPLÈTE format A4
     Document officiel avec toutes les mentions légales
+    Charte graphique: Blanc, #4ad19e (vert menthe), Noir
     """
     buffer = BytesIO()
     doc = SimpleDocTemplate(
@@ -15,17 +16,24 @@ def generate_invoice(self):
     elements = []
     styles = getSampleStyleSheet()
     
+    # Couleurs de la charte
+    VERT_MENTHE = colors.HexColor('#4ad19e')
+    NOIR = colors.HexColor('#000000')
+    GRIS_FONCE = colors.HexColor('#1a1a1a')
+    GRIS_CLAIR = colors.HexColor('#f8f9fa')
+    
     # ============ EN-TÊTE AVEC LOGO + DATES ============
     logo_url = "https://static.wixstatic.com/media/985974_816db9a0e3d348da86b214669dbf3d64~mv2.png/v1/fit/w_2500,h_1330,al_c/985974_816db9a0e3d348da86b214669dbf3d64~mv2.png"
-    logo = Image(logo_url, width=12*mm, height=12*mm)
+    logo = Image(logo_url, width=14*mm, height=14*mm)
     
     title_style = ParagraphStyle(
         'TitleStyle',
         parent=styles['Heading1'],
-        fontSize=24,
-        textColor=colors.HexColor('#4CAF50'),
+        fontSize=26,
+        textColor=VERT_MENTHE,
         fontName='Helvetica-Bold',
-        alignment=TA_LEFT
+        alignment=TA_LEFT,
+        leading=30
     )
     
     title_text = Paragraph("<b>MICHEL DE VELO</b>", title_style)
@@ -35,7 +43,8 @@ def generate_invoice(self):
         'DateStyle',
         parent=styles['Normal'],
         fontSize=9,
-        alignment=TA_RIGHT
+        alignment=TA_RIGHT,
+        textColor=GRIS_FONCE
     )
     
     date_text = Paragraph(f"""
@@ -44,7 +53,7 @@ def generate_invoice(self):
     """, date_style)
     
     # Table pour aligner logo + titre à gauche, dates à droite
-    header_table = Table([[logo, title_text, date_text]], colWidths=[15*mm, 90*mm, 65*mm])
+    header_table = Table([[logo, title_text, date_text]], colWidths=[16*mm, 88*mm, 66*mm])
     header_table.setStyle(TableStyle([
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('ALIGN', (0, 0), (1, 0), 'LEFT'),
@@ -54,6 +63,16 @@ def generate_invoice(self):
     ]))
     
     elements.append(header_table)
+    
+    # Ligne de séparation élégante
+    line_data = [['']]
+    line_table = Table(line_data, colWidths=[17*cm])
+    line_table.setStyle(TableStyle([
+        ('LINEBELOW', (0, 0), (-1, -1), 2, VERT_MENTHE),
+        ('TOPPADDING', (0, 0), (-1, -1), 2),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+    ]))
+    elements.append(line_table)
     elements.append(Spacer(1, 0.3*cm))
     
     # ============ INFORMATIONS DU MAGASIN (sur une ligne) ============
@@ -64,70 +83,96 @@ def generate_invoice(self):
         parent=styles['Normal'],
         fontSize=10,
         alignment=TA_CENTER,
-        textColor=colors.HexColor('#4b5563')
+        textColor=GRIS_FONCE
     )
     
     store_text = f"""
-    <b>Magasin de {store_info['name']}</b> {store_info['address']} {store_info['postal']}<br/>
-    Tél: {store_info['phone']} | Email: {store_info['email']}
+    <b>Magasin de {store_info['name']}</b> · {store_info['address']} · {store_info['postal']}<br/>
+    <font color="#4ad19e">☎</font> {store_info['phone']} · <font color="#4ad19e">✉</font> {store_info['email']}
     """
     elements.append(Paragraph(store_text, store_style))
     elements.append(Spacer(1, 0.5*cm))
     
-    # ============ NUMÉRO DE FACTURE ============
+    # ============ NUMÉRO DE FACTURE (encadré élégant) ============
     invoice_header_style = ParagraphStyle(
         'InvoiceHeader',
         parent=styles['Heading2'],
-        fontSize=16,
-        textColor=colors.HexColor('#1e40af'),
+        fontSize=18,
+        textColor=colors.white,
         alignment=TA_CENTER,
         fontName='Helvetica-Bold'
     )
     
-    elements.append(Paragraph(f"FACTURE N° {self.invoice_number}", invoice_header_style))
-    elements.append(Spacer(1, 0.4*cm))
+    invoice_box_data = [[Paragraph(f"FACTURE N° {self.invoice_number}", invoice_header_style)]]
+    invoice_box_table = Table(invoice_box_data, colWidths=[17*cm])
+    invoice_box_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), VERT_MENTHE),
+        ('PADDING', (0, 0), (-1, -1), 12),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+    ]))
+    elements.append(invoice_box_table)
+    elements.append(Spacer(1, 0.5*cm))
     
     # ============ INFORMATIONS CLIENT ============
     client = self.order.client
+    
+    client_header_style = ParagraphStyle(
+        'ClientHeader',
+        parent=styles['Normal'],
+        fontSize=11,
+        fontName='Helvetica-Bold',
+        textColor=VERT_MENTHE,
+        spaceAfter=4
+    )
+    
+    client_content_style = ParagraphStyle(
+        'ClientContent',
+        parent=styles['Normal'],
+        fontSize=9,
+        textColor=GRIS_FONCE
+    )
+    
     client_box_data = [
-        [Paragraph('<b>FACTURÉ À:</b>', styles['Normal'])],
-        [Paragraph(f'<b>{client.first_name} {client.last_name}</b>', styles['Normal'])],
+        [Paragraph('FACTURÉ À', client_header_style)],
+        [Paragraph(f'<b>{client.first_name} {client.last_name}</b>', client_content_style)],
     ]
     
     if client.address:
-        client_box_data.append([Paragraph(client.address, styles['Normal'])])
+        client_box_data.append([Paragraph(client.address, client_content_style)])
     if client.postal_code and client.city:
-        client_box_data.append([Paragraph(f'{client.postal_code} {client.city}', styles['Normal'])])
+        client_box_data.append([Paragraph(f'{client.postal_code} {client.city}', client_content_style)])
     
-    client_box_data.append([Paragraph(f'Email: {client.email}', styles['Normal'])])
-    client_box_data.append([Paragraph(f'Tél: {client.phone}', styles['Normal'])])
+    client_box_data.append([Paragraph(f'<font color="#4ad19e">✉</font> {client.email}', client_content_style)])
+    client_box_data.append([Paragraph(f'<font color="#4ad19e">☎</font> {client.phone}', client_content_style)])
     
     client_table = Table(client_box_data, colWidths=[17*cm])
     client_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#f3f4f6')),
-        ('PADDING', (0, 0), (-1, -1), 8),
+        ('BACKGROUND', (0, 0), (-1, -1), GRIS_CLAIR),
+        ('PADDING', (0, 0), (-1, -1), 10),
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('BOX', (0, 0), (-1, -1), 1, colors.HexColor('#d1d5db')),
+        ('LINEBELOW', (0, 0), (-1, 0), 2, VERT_MENTHE),
     ]))
     elements.append(client_table)
     elements.append(Spacer(1, 0.5*cm))
     
     # ============ NOTES DE COMMANDE ============
     if self.order.notes:
-        notes_content_style = ParagraphStyle(
-            'NotesContent',
+        notes_style = ParagraphStyle(
+            'NotesStyle',
             parent=styles['Normal'],
             fontSize=9,
-            textColor=colors.HexColor('#374151')
+            textColor=GRIS_FONCE,
+            leftIndent=5
         )
         
-        notes_box_data = [[Paragraph(f'<b>📝 Notes:</b> {self.order.notes}', notes_content_style)]]
+        notes_box_data = [[Paragraph(f'<b><font color="#4ad19e">💬 Notes:</font></b> {self.order.notes}', notes_style)]]
         notes_table = Table(notes_box_data, colWidths=[17*cm])
         notes_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#fef3c7')),
-            ('PADDING', (0, 0), (-1, -1), 6),
+            ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#e8f8f3')),
+            ('PADDING', (0, 0), (-1, -1), 8),
             ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-            ('BOX', (0, 0), (-1, -1), 1, colors.HexColor('#fbbf24')),
+            ('LEFTPADDING', (0, 0), (-1, -1), 12),
         ]))
         elements.append(notes_table)
         elements.append(Spacer(1, 0.4*cm))
@@ -136,51 +181,63 @@ def generate_invoice(self):
     table_header_style = ParagraphStyle(
         'TableHeader',
         parent=styles['Normal'],
-        fontSize=9,
+        fontSize=10,
         textColor=colors.white,
-        fontName='Helvetica-Bold'
+        fontName='Helvetica-Bold',
+        alignment=TA_CENTER
+    )
+    
+    item_style = ParagraphStyle(
+        'ItemStyle',
+        parent=styles['Normal'],
+        fontSize=9,
+        textColor=GRIS_FONCE
     )
     
     data = [[
-        Paragraph('Désignation', table_header_style),
-        Paragraph('Qté', table_header_style),
-        Paragraph('Prix HT', table_header_style),
+        Paragraph('DÉSIGNATION', table_header_style),
+        Paragraph('QTÉ', table_header_style),
+        Paragraph('PRIX HT', table_header_style),
         Paragraph('TVA', table_header_style),
-        Paragraph('Total TTC', table_header_style)
+        Paragraph('TOTAL TTC', table_header_style)
     ]]
     
     for item in self.order.items.all():
         data.append([
-            Paragraph(f'<b>{item.product.name}</b><br/><font size="7">Réf: {item.product.reference}</font>', styles['Normal']),
-            Paragraph(f'{item.quantity}', styles['Normal']),
-            Paragraph(f'{item.unit_price_ht:.2f} €', styles['Normal']),
-            Paragraph(f'{item.tva_rate:.0f}%', styles['Normal']),
-            Paragraph(f'<b>{item.subtotal_ttc:.2f} €</b>', styles['Normal']),
+            Paragraph(f'<b>{item.product.name}</b><br/><font size="7" color="#666666">Réf: {item.product.reference}</font>', item_style),
+            Paragraph(f'<b>{item.quantity}</b>', item_style),
+            Paragraph(f'{item.unit_price_ht:.2f} €', item_style),
+            Paragraph(f'{item.tva_rate:.0f}%', item_style),
+            Paragraph(f'<b>{item.subtotal_ttc:.2f} €</b>', item_style),
         ])
     
     table = Table(data, colWidths=[8*cm, 1.8*cm, 2.5*cm, 1.8*cm, 2.9*cm])
     table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1e40af')),
+        # En-tête
+        ('BACKGROUND', (0, 0), (-1, 0), NOIR),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
         ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
         ('FONTSIZE', (0, 0), (-1, 0), 10),
-        ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
-        ('TOPPADDING', (0, 0), (-1, 0), 8),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 10),
+        ('TOPPADDING', (0, 0), (-1, 0), 10),
+        # Corps du tableau
         ('BACKGROUND', (0, 1), (-1, -1), colors.white),
-        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#d1d5db')),
         ('ALIGN', (1, 1), (-1, -1), 'CENTER'),
         ('ALIGN', (0, 1), (0, -1), 'LEFT'),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('FONTSIZE', (0, 1), (-1, -1), 9),
-        ('TOPPADDING', (0, 1), (-1, -1), 6),
-        ('BOTTOMPADDING', (0, 1), (-1, -1), 6),
-        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f9fafb')]),
+        ('TOPPADDING', (0, 1), (-1, -1), 8),
+        ('BOTTOMPADDING', (0, 1), (-1, -1), 8),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, GRIS_CLAIR]),
+        # Bordures
+        ('LINEBELOW', (0, 0), (-1, 0), 2, VERT_MENTHE),
+        ('LINEBELOW', (0, 1), (-1, -1), 0.5, colors.HexColor('#e0e0e0')),
     ]))
     elements.append(table)
     elements.append(Spacer(1, 0.5*cm))
     
-    # ============ TOTAUX ============
+    # ============ TOTAUX (encadré moderne) ============
     payment_methods = {
         'cash': 'Espèces',
         'card': 'Carte bancaire',
@@ -190,32 +247,69 @@ def generate_invoice(self):
     }
     payment_text = payment_methods.get(self.order.payment_method, self.order.payment_method)
     
+    totals_style_label = ParagraphStyle(
+        'TotalsLabel',
+        parent=styles['Normal'],
+        fontSize=10,
+        textColor=GRIS_FONCE,
+        alignment=TA_RIGHT
+    )
+    
+    totals_style_value = ParagraphStyle(
+        'TotalsValue',
+        parent=styles['Normal'],
+        fontSize=10,
+        textColor=GRIS_FONCE,
+        alignment=TA_RIGHT,
+        fontName='Helvetica-Bold'
+    )
+    
+    total_final_style = ParagraphStyle(
+        'TotalFinal',
+        parent=styles['Normal'],
+        fontSize=16,
+        textColor=colors.white,
+        alignment=TA_RIGHT,
+        fontName='Helvetica-Bold'
+    )
+    
     totals_data = [
-        ['Sous-total HT:', f'{self.order.subtotal_ht:.2f} €'],
-        ['TVA:', f'{self.order.total_tva:.2f} €'],
+        [Paragraph('Sous-total HT:', totals_style_label), Paragraph(f'{self.order.subtotal_ht:.2f} €', totals_style_value)],
+        [Paragraph('TVA (20%):', totals_style_label), Paragraph(f'{self.order.total_tva:.2f} €', totals_style_value)],
     ]
     
     if self.order.discount_amount > 0:
-        totals_data.append(['Remise:', f'-{self.order.discount_amount:.2f} €'])
+        totals_data.append([
+            Paragraph('Remise:', totals_style_label), 
+            Paragraph(f'-{self.order.discount_amount:.2f} €', totals_style_value)
+        ])
     
-    totals_data.extend([
-        ['', ''],
-        [Paragraph('<b>TOTAL TTC:</b>', styles['Normal']), 
-         Paragraph(f'<b>{self.order.total_ttc:.2f} €</b>', styles['Normal'])],
-        ['Mode de paiement:', payment_text],
+    totals_data.append([
+        Paragraph('<b>TOTAL TTC</b>', total_final_style), 
+        Paragraph(f'<b>{self.order.total_ttc:.2f} €</b>', total_final_style)
+    ])
+    
+    totals_data.append([
+        Paragraph(f'<font size="8">Mode de paiement: {payment_text}</font>', totals_style_label),
+        Paragraph('', totals_style_value)
     ])
     
     totals_table = Table(totals_data, colWidths=[13*cm, 4*cm])
     totals_table.setStyle(TableStyle([
         ('ALIGN', (0, 0), (-1, -1), 'RIGHT'),
-        ('FONTSIZE', (0, 0), (-1, -2), 9),
-        ('FONTNAME', (0, -2), (-1, -2), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, -2), (-1, -2), 12),
-        ('TEXTCOLOR', (0, -2), (-1, -2), colors.HexColor('#1e40af')),
-        ('LINEABOVE', (0, -2), (-1, -2), 2, colors.HexColor('#1e40af')),
-        ('TOPPADDING', (0, -2), (-1, -2), 8),
-        ('BOTTOMPADDING', (0, -2), (-1, -2), 8),
-        ('BACKGROUND', (1, -2), (1, -2), colors.HexColor('#dbeafe')),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING', (0, 0), (-1, -2), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -2), 4),
+        # Ligne du total final
+        ('BACKGROUND', (0, -2), (-1, -2), VERT_MENTHE),
+        ('SPAN', (0, -2), (-1, -2)),
+        ('PADDING', (0, -2), (-1, -2), 12),
+        ('TOPPADDING', (0, -2), (-1, -2), 10),
+        ('BOTTOMPADDING', (0, -2), (-1, -2), 10),
+        # Ligne mode de paiement
+        ('BACKGROUND', (0, -1), (-1, -1), GRIS_CLAIR),
+        ('SPAN', (0, -1), (-1, -1)),
+        ('PADDING', (0, -1), (-1, -1), 6),
     ]))
     elements.append(totals_table)
     
@@ -226,16 +320,17 @@ def generate_invoice(self):
         'Footer',
         parent=styles['Normal'],
         fontSize=8,
-        textColor=colors.HexColor('#6b7280'),
-        alignment=TA_CENTER
+        textColor=GRIS_FONCE,
+        alignment=TA_CENTER,
+        leading=12
     )
     
     footer_text = """
     <b>Merci de votre confiance !</b><br/>
-    Garantie : 2 ans sur les vélos, 1 an sur les accessoires<br/>
-    <i>TVA non applicable, art. 293 B du CGI - Facture acquittée</i><br/>
+    Garantie : 2 ans sur les vélos · 1 an sur les accessoires<br/>
+    <i>TVA non applicable, art. 293 B du CGI · Facture acquittée</i><br/>
     <br/>
-    SIRET: 123 456 789 00012 | TVA: FR12345678901
+    <font color="#4ad19e">●</font> SIRET: 123 456 789 00012 <font color="#4ad19e">●</font> TVA: FR12345678901 <font color="#4ad19e">●</font>
     """
     elements.append(Paragraph(footer_text, footer_style))
     
