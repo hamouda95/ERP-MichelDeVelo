@@ -27,14 +27,14 @@ export default function Layout({ children }) {
 
   const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
-    { name: 'Produits', href: '/products', icon: CubeIcon },
     { name: 'Clients', href: '/clients', icon: UserGroupIcon },
-    { name: 'Vente', href: '/cart', icon: ShoppingCartIcon },
-    { name: 'Réparations', href: '/repairs', icon: WrenchScrewdriverIcon },
-    { name: 'Devis', href: '/quotes', icon: DocumentTextIcon },
     { name: 'Fournisseurs', href: '/suppliers', icon: TruckIcon },
-    { name: 'RDV', href: '/appointments', icon: CalendarDaysIcon },
     { name: 'Achats', href: '/Purchases', icon: BuildingOfficeIcon },
+    { name: 'Stocks', href: '/products', icon: CubeIcon },
+    { name: 'Caisse', href: '/cart', icon: ShoppingCartIcon },
+    { name: 'Devis', href: '/quotes', icon: DocumentTextIcon },
+    { name: 'Réparations', href: '/repairs', icon: WrenchScrewdriverIcon },
+    { name: 'RDV', href: '/appointments', icon: CalendarDaysIcon },
     { name: 'Comptabilité', href: '/Finance', icon: CurrencyDollarIcon },
   ];
 
