@@ -14,8 +14,8 @@ class RepairViewSet(viewsets.ModelViewSet):
     serializer_class = RepairSerializer
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['status', 'store', 'client']
-    search_fields = ['repair_number', 'bike_name', 'bike_brand', 'client__first_name', 'client__last_name']
-    ordering_fields = ['created_at', 'date_reception', 'date_estimated_delivery']
+    search_fields = ['reference_number', 'bike_brand', 'bike_model', 'client__first_name', 'client__last_name']
+    ordering_fields = ['created_at', 'estimated_completion', 'actual_completion']
     ordering = ['-created_at']
     
     def get_serializer_class(self):
@@ -41,9 +41,9 @@ class RepairViewSet(viewsets.ModelViewSet):
         repair.status = new_status
         
         # Si livré, enregistrer la date réelle de livraison
-        if new_status == 'delivered' and not repair.date_actual_delivery:
+        if new_status == 'delivered' and not repair.actual_completion:
             from django.utils import timezone
-            repair.date_actual_delivery = timezone.now().date()
+            repair.actual_completion = timezone.now().date()
         
         repair.save()
         
@@ -68,21 +68,9 @@ class RepairViewSet(viewsets.ModelViewSet):
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
-    '''@action(detail=True, methods=['get'])
-    def print(self, request, pk=None):
-        """Générer/télécharger le PDF de réparation"""
-        repair = self.get_object()
-        
-        # TODO: Implémenter la génération PDF
-        
-        return Response({
-            'message': 'PDF généré avec succès',
-            'repair_number': repair.repair_number
-        })
-    '''
     @action(detail=True, methods=['get'])
     def print(self, request, pk=None):
-        """Générer et renvoyer un PDF du devis"""
+        """Générer et renvoyer un PDF du bon de réparation"""
         repair = self.get_object()
 
         # Création d'un PDF en mémoire
@@ -91,50 +79,45 @@ class RepairViewSet(viewsets.ModelViewSet):
         
         # Contenu du PDF
         p.setFont("Helvetica-Bold", 16)
-        p.drawString(100, 800, f"Devis n°{repair.reference_number}")
-        #p.setFont("Helvetica", 12)
-        #p.drawString(100, 780, f"Client : {quote.client}")
-        #p.drawString(100, 760, f"Magasin : {quote.store}")
-        #p.drawString(100, 740, f"Valide jusqu'au : {quote.valid_until}")
-        '''
+        p.drawString(100, 800, f"Bon de réparation n°{repair.reference_number}")
+        p.setFont("Helvetica", 12)
+        p.drawString(100, 780, f"Client : {repair.client.first_name} {repair.client.last_name}")
+        p.drawString(100, 760, f"Magasin : {repair.get_store_display()}")
+        p.drawString(100, 740, f"Date : {repair.created_at.strftime('%d/%m/%Y')}")
+        
         y = 700
-        p.drawString(100, y, "Articles :")
-        for item in quote.items.all():
+        p.drawString(100, y, f"Vélo : {repair.bike_brand} {repair.bike_model}")
+        
+        if repair.bike_serial_number:
             y -= 20
-            p.drawString(120, y, f"{item.product.name} - Qté : {item.quantity} - Prix HT : {item.unit_price_ht}€")
+            p.drawString(100, y, f"N° série : {repair.bike_serial_number}")
         
         y -= 40
-        p.drawString(100, y, f"Total HT : {quote.subtotal_ht}€")
+        p.drawString(100, y, "Description :")
         y -= 20
-        p.drawString(100, y, f"TVA : {quote.total_tva}€")
-        y -= 20
-        p.drawString(100, y, f"Total TTC : {quote.total_ttc}€")
-'''
+        p.drawString(120, y, repair.description or "Non renseignée")
+        
+        if repair.items.exists():
+            y -= 40
+            p.drawString(100, y, "Articles/Interventions :")
+            for item in repair.items.all():
+                y -= 20
+                p.drawString(120, y, f"{item.description} - Qté : {item.quantity} - Prix : {item.total_price}€")
+        
+        y -= 40
+        p.drawString(100, y, f"Coût estimé : {repair.estimated_cost}€")
+        
+        if repair.final_cost > 0:
+            y -= 20
+            p.drawString(100, y, f"Coût final : {repair.final_cost}€")
+
         p.showPage()
         p.save()
 
         buffer.seek(0)
         response = HttpResponse(buffer, content_type='application/pdf')
-        response['Content-Disposition'] = f'attachment; filename="devis_{repair.reference_number}.pdf"'
+        response['Content-Disposition'] = f'attachment; filename="reparation_{repair.reference_number}.pdf"'
         return response
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
     
     @action(detail=False, methods=['get'])
     def statistics(self, request):
@@ -151,7 +134,7 @@ class RepairViewSet(viewsets.ModelViewSet):
         # Statistiques mensuelles
         thirty_days_ago = timezone.now().date() - timedelta(days=30)
         monthly_repairs = Repair.objects.filter(
-            date_reception__gte=thirty_days_ago
+            created_at__gte=thirty_days_ago
         ).count()
         
         # Revenus des réparations terminées
@@ -162,16 +145,19 @@ class RepairViewSet(viewsets.ModelViewSet):
         # Durée moyenne de réparation
         completed_repairs = Repair.objects.filter(
             status='delivered',
-            date_actual_delivery__isnull=False
+            actual_completion__isnull=False
         )
         
         avg_duration = 0
         if completed_repairs.exists():
-            durations = [
-                (r.date_actual_delivery - r.date_reception).days 
-                for r in completed_repairs
-            ]
-            avg_duration = sum(durations) / len(durations)
+            durations = []
+            for r in completed_repairs:
+                if r.created_at and r.actual_completion:
+                    duration = (r.actual_completion - r.created_at.date()).days
+                    durations.append(duration)
+            
+            if durations:
+                avg_duration = sum(durations) / len(durations)
         
         return Response({
             'status_distribution': list(status_stats),
