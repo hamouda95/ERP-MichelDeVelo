@@ -23,7 +23,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'rest_framework_simplejwt',
-    'corsheaders',
+    'corsheaders',  # ✅ Déjà présent
     'django_filters',
     'social_django',
     'accounts',
@@ -31,16 +31,16 @@ INSTALLED_APPS = [
     'clients',
     'orders',
     'invoices',
-    'repairs',      # ✅ Vérifier que c'est présent
-    'quotes',       # ✅ Vérifier que c'est présent
-    'suppliers',    # ✅ Vérifier que c'est présent
+    'repairs',
+    'quotes',
+    'suppliers',
 ]
 
 # Custom User Model
 AUTH_USER_MODEL = 'accounts.CustomUser'
 
 MIDDLEWARE = [
-    'corsheaders.middleware.CorsMiddleware',
+    'corsheaders.middleware.CorsMiddleware',  # ✅ Déjà en premier - PARFAIT
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -73,7 +73,7 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'bike_erp.wsgi.application'
 
-# ✅ CORRECTION: Supabase PostgreSQL Database avec options IPv4
+# Database
 DATABASES = {
     'default': dj_database_url.config(
         default=config('DATABASE_URL'),
@@ -82,7 +82,6 @@ DATABASES = {
     )
 }
 
-# ✅ AJOUT: Forcer les options de connexion pour éviter IPv6
 if 'OPTIONS' not in DATABASES['default']:
     DATABASES['default']['OPTIONS'] = {}
 
@@ -115,12 +114,21 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# ✅ CORRECTION: CORS Configuration complète
-CORS_ALLOWED_ORIGINS = ["https://erp-micheldevelo-frontend.onrender.com"]
+# ============================================
+# 🔧 CORRECTION CORS - Configuration complète
+# ============================================
 
+# Origines autorisées (ajout de localhost pour dev)
+CORS_ALLOWED_ORIGINS = [
+    "https://erp-micheldevelo-frontend.onrender.com",
+    "http://localhost:3000",  # ← AJOUT pour dev local
+    "http://localhost:5173",  # ← AJOUT si vous utilisez Vite
+]
+
+# ✅ IMPORTANT: Autoriser les credentials
 CORS_ALLOW_CREDENTIALS = True
 
-# ✅ AJOUT: Headers CORS complets
+# ✅ Headers CORS complets
 CORS_ALLOW_HEADERS = [
     'accept',
     'accept-encoding',
@@ -133,6 +141,7 @@ CORS_ALLOW_HEADERS = [
     'x-requested-with',
 ]
 
+# ✅ Méthodes HTTP autorisées
 CORS_ALLOW_METHODS = [
     'DELETE',
     'GET',
@@ -140,6 +149,13 @@ CORS_ALLOW_METHODS = [
     'PATCH',
     'POST',
     'PUT',
+]
+
+# 🆕 AJOUT: Autoriser tous les headers dans les réponses
+CORS_EXPOSE_HEADERS = [
+    'content-type',
+    'content-disposition',
+    'content-length',
 ]
 
 # REST Framework Configuration
@@ -190,3 +206,37 @@ CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = TIME_ZONE
+
+# ============================================
+# 🆕 LOGGING - Pour débugger les erreurs
+# ============================================
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console'],
+            'level': 'INFO',
+        },
+        'invoices': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
+        },
+        'orders': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
+        },
+    },
+}
