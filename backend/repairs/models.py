@@ -43,9 +43,10 @@ class Repair(models.Model):
     notes = models.TextField(blank=True, verbose_name="Notes")
     
     # Dates
-    created_date = models.DateTimeField(auto_now_add=True, verbose_name="Date de création")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Date de création")
     estimated_completion = models.DateField(null=True, blank=True, verbose_name="Date de livraison estimée")
     actual_completion = models.DateField(null=True, blank=True, verbose_name="Date de livraison réelle")
+    updated_at = models.DateTimeField(auto_now=True)
     
     # Informations gestion
     store = models.CharField(max_length=20, choices=STORE_CHOICES)
@@ -57,14 +58,13 @@ class Repair(models.Model):
     estimated_cost = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="Coût estimé")
     final_cost = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="Coût final")
     deposit_paid = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="Acompte versé")
+    max_budget = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, verbose_name="Budget maximum")
     
     # Pièces nécessaires (JSON field pour flexibilité)
     parts_needed = models.JSONField(default=list, blank=True, verbose_name="Pièces nécessaires")
     
     # Métadonnées
     created_by = models.ForeignKey(User, on_delete=models.PROTECT, related_name='created_repairs')
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
     
     class Meta:
         db_table = 'repairs'
@@ -72,7 +72,7 @@ class Repair(models.Model):
         indexes = [
             models.Index(fields=['reference_number']),
             models.Index(fields=['status']),
-            models.Index(fields=['created_date']),
+            models.Index(fields=['created_at']),
         ]
     
     def __str__(self):
@@ -86,8 +86,8 @@ class Repair(models.Model):
     def generate_reference_number(self):
         """
         Génère un numéro de référence au format:
-        REP-VA-20251107-001 pour Ville d'Avray
-        REP-GA-20251107-001 pour Garches
+        REP-VA-20251207-001 pour Ville d'Avray
+        REP-GA-20251207-001 pour Garches
         """
         from django.utils import timezone
 
@@ -108,7 +108,6 @@ class Repair(models.Model):
             new_number = 1
         
         return f"{prefix}-{new_number:03d}"
-    
 
 
 class RepairItem(models.Model):
