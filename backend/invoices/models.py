@@ -310,21 +310,19 @@ class Invoice(models.Model):
 
         # Informations du magasin
         store_name = "Ville d'Avray" if self.order.store == 'ville_avray' else "Garches"
-        store_addresses = {
+         store_addresses = {
             'ville_avray': {
-                'address': '123 Avenue de Versailles',
+                'address': '6 Rue de Saint-Cloud',
                 'postal': '92410 Ville d\'Avray',
-                'phone': '01 47 50 XX XX',
-                'email': 'villedavray@bike-erp.fr'
+                'phone': '09 51 33 31 40'
             },
             'garches': {
-                'address': '456 Rue de la République',
+                'address': '63 Rue de Suresnes',
                 'postal': '92380 Garches',
-                'phone': '01 47 41 XX XX',
-                'email': 'garches@bike-erp.fr'
+                'phone': '06 95 26 06 07'
             }
         }
-        
+
         store_info = store_addresses.get(self.order.store, store_addresses['ville_avray'])
         
         store_style = ParagraphStyle(
