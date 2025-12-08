@@ -382,6 +382,38 @@ class Invoice(models.Model):
         ]))
         elements.append(client_table)
         elements.append(Spacer(1, 1*cm))
+
+        # ============ NOTES DE COMMANDE ============
+        if self.order.notes:
+            notes_header_style = ParagraphStyle(
+                'NotesHeader',
+                parent=styles['Normal'],
+                fontSize=11,
+                fontName='Helvetica-Bold',
+                textColor=colors.HexColor('#1e40af'),
+                spaceAfter=0.3*cm
+            )
+            
+            notes_content_style = ParagraphStyle(
+                'NotesContent',
+                parent=styles['Normal'],
+                fontSize=9,
+                textColor=colors.HexColor('#374151'),
+                leftIndent=0.3*cm
+            )
+            
+            elements.append(Paragraph('📝 Notes de commande:', notes_header_style))
+            
+            notes_box_data = [[Paragraph(self.order.notes, notes_content_style)]]
+            notes_table = Table(notes_box_data, colWidths=[18*cm])
+            notes_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#fef3c7')),
+                ('PADDING', (0, 0), (-1, -1), 10),
+                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                ('BOX', (0, 0), (-1, -1), 1, colors.HexColor('#fbbf24')),
+            ]))
+            elements.append(notes_table)
+            elements.append(Spacer(1, 0.8*cm))
         
         # ============ TABLEAU DES ARTICLES ============
         table_header_style = ParagraphStyle(
