@@ -4,12 +4,13 @@ from django.utils import timezone
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
 from reportlab.lib.units import cm, mm
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_RIGHT, TA_LEFT
 from io import BytesIO
-from reportlab.platypus import Image, Table, TableStyle
+from django.core.files.base import ContentFile
 from django.core.mail import EmailMessage
+
 
 class Invoice(models.Model):
     invoice_number = models.CharField(max_length=30, unique=True, editable=False)
@@ -65,6 +66,26 @@ class Invoice(models.Model):
         
         return f"{prefix}{date_str}-{new_number:07d}"
     
+    def _get_store_info(self):
+        """Retourne les informations du magasin."""
+        store_addresses = {
+            'ville_avray': {
+                'name': "Ville d'Avray",
+                'address': '6 Rue de Saint-Cloud',
+                'postal': '92410 Ville d\'Avray',
+                'phone': '09 51 33 31 40',
+                'email': 'villedavray@micheldevelo.fr'
+            },
+            'garches': {
+                'name': 'Garches',
+                'address': '63 Rue de Suresnes',
+                'postal': '92380 Garches',
+                'phone': '06 95 26 06 07',
+                'email': 'garches@micheldevelo.fr'
+            }
+        }
+        return store_addresses.get(self.order.store, store_addresses['ville_avray'])
+    
     def generate_receipt(self):
         """
         Génère un TICKET DE CAISSE format 80mm (thermique)
@@ -88,7 +109,7 @@ class Invoice(models.Model):
         elements = []
         styles = getSampleStyleSheet()
         
-        # Style pour ticket
+        # Styles pour ticket
         receipt_title = ParagraphStyle(
             'ReceiptTitle',
             parent=styles['Normal'],
@@ -99,7 +120,7 @@ class Invoice(models.Model):
         )
 
         receipt_moyen = ParagraphStyle(
-            'ReceiptTitle',
+            'ReceiptMoyen',
             parent=styles['Normal'],
             fontSize=11,
             alignment=TA_CENTER,
@@ -123,37 +144,19 @@ class Invoice(models.Model):
         )
         
         # === EN-TÊTE ===
-        store_name = "Ville d'Avray" if self.order.store == 'ville_avray' else "Garches"
-        store_addresses = {
-            'ville_avray': {
-                'address': '6 Rue de Saint-Cloud',
-                'postal': '92410 Ville d\'Avray',
-                'phone': '09 51 33 31 40'
-            },
-            'garches': {
-                'address': '63 Rue de Suresnes',
-                'postal': '92380 Garches',
-                'phone': '06 95 26 06 07'
-            }
-        }
-        store_info = store_addresses.get(self.order.store, store_addresses['ville_avray'])
+        store_info = self._get_store_info()
         
         elements.append(Paragraph("================================", receipt_normal))
-
-
-# Début du script qui affiche le logo avec le titre du reçu
-
         
-
         # === LOGO + TEXTE "MICHEL DE VELO" ===
         logo_url = "https://static.wixstatic.com/media/985974_816db9a0e3d348da86b214669dbf3d64~mv2.png/v1/fit/w_2500,h_1330,al_c/985974_816db9a0e3d348da86b214669dbf3d64~mv2.png"
-
-        # Charger le logo depuis l’URL (tu peux ajuster la taille)
+        
+        # Charger le logo depuis l'URL
         logo = Image(logo_url, width=12*mm, height=12*mm)
-
+        
         # Texte du nom du magasin
         title = Paragraph("<b>MICHEL DE VELO</b>", receipt_title)
-
+        
         # Table pour aligner le logo et le texte sur la même ligne
         title_table = Table([[logo, title]], colWidths=[16*mm, 50*mm])
         title_table.setStyle(TableStyle([
@@ -164,10 +167,10 @@ class Invoice(models.Model):
             ('TOPPADDING', (0, 0), (-1, -1), 0),
             ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
         ]))
-
+        
         elements.append(title_table)
-
-        elements.append(Paragraph(f"<b>{store_name}</b>", receipt_normal))
+        
+        elements.append(Paragraph(f"<b>{store_info['name']}</b>", receipt_normal))
         elements.append(Paragraph(store_info['address'], receipt_normal))
         elements.append(Paragraph(store_info['postal'], receipt_normal))
         elements.append(Paragraph(f"Tél: {store_info['phone']}", receipt_normal))
@@ -248,7 +251,6 @@ class Invoice(models.Model):
         buffer.seek(0)
         
         # Sauvegarder
-        from django.core.files.base import ContentFile
         filename = f'ticket_{self.invoice_number}.pdf'
         self.receipt_pdf.save(filename, ContentFile(buffer.read()), save=True)
         
@@ -282,17 +284,15 @@ class Invoice(models.Model):
             fontName='Helvetica-Bold'
         )
         
-        #elements.append(Paragraph("🚴 MAGASIN DE VÉLOS", title_style))
-        # Début du script qui affiche le logo avec le titre de la facture
         # === LOGO + TEXTE "MICHEL DE VELO" ===
         logo_url = "https://static.wixstatic.com/media/985974_816db9a0e3d348da86b214669dbf3d64~mv2.png/v1/fit/w_2500,h_1330,al_c/985974_816db9a0e3d348da86b214669dbf3d64~mv2.png"
-
-        # Charger le logo depuis l’URL (tu peux ajuster la taille)
+        
+        # Charger le logo depuis l'URL
         logo = Image(logo_url, width=14*mm, height=14*mm)
-
+        
         # Texte du nom du magasin
         title = Paragraph("<b>MICHEL DE VELO</b>", title_style)
-
+        
         # Table pour aligner le logo et le texte sur la même ligne
         title_table = Table([[logo, title]], colWidths=[16*mm, 100*mm])
         title_table.setStyle(TableStyle([
@@ -303,27 +303,11 @@ class Invoice(models.Model):
             ('TOPPADDING', (0, 0), (-1, -1), 0),
             ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
         ]))
-
+        
         elements.append(title_table)
-
-
-
+        
         # Informations du magasin
-        store_name = "Ville d'Avray" if self.order.store == 'ville_avray' else "Garches"
-         store_addresses = {
-            'ville_avray': {
-                'address': '6 Rue de Saint-Cloud',
-                'postal': '92410 Ville d\'Avray',
-                'phone': '09 51 33 31 40'
-            },
-            'garches': {
-                'address': '63 Rue de Suresnes',
-                'postal': '92380 Garches',
-                'phone': '06 95 26 06 07'
-            }
-        }
-
-        store_info = store_addresses.get(self.order.store, store_addresses['ville_avray'])
+        store_info = self._get_store_info()
         
         store_style = ParagraphStyle(
             'StoreInfo',
@@ -335,7 +319,7 @@ class Invoice(models.Model):
         )
         
         store_text = f"""
-        <b>Magasin de {store_name}</b><br/>
+        <b>Magasin de {store_info['name']}</b><br/>
         {store_info['address']}<br/>
         {store_info['postal']}<br/>
         Tél: {store_info['phone']} | Email: {store_info['email']}<br/>
@@ -511,39 +495,39 @@ class Invoice(models.Model):
         buffer.seek(0)
         
         # Sauvegarder
-        from django.core.files.base import ContentFile
         filename = f'facture_{self.invoice_number}.pdf'
         self.invoice_pdf.save(filename, ContentFile(buffer.read()), save=True)
         
         return buffer
+    
     def send_invoice_email(self):
         """Envoie la facture PDF au client automatiquement."""
         client_email = self.order.client.email
         if not client_email:
             return False
-    
+        
         subject = f"Votre facture {self.invoice_number} - Michel de Vélo"
         message = (
             f"Bonjour {self.order.client.full_name or self.order.client.first_name},\n\n"
             f"Merci pour votre achat chez Michel de Vélo.\n"
             f"Veuillez trouver ci-joint votre facture N° {self.invoice_number}.\n\n"
             "À bientôt !\n\n"
-            "L’équipe Michel de Vélo"
+            "L'équipe Michel de Vélo"
         )
-    
+        
         email = EmailMessage(subject, message, "micheldevelo@gmail.com", [client_email])
-    
+        
         if self.invoice_pdf:
             email.attach_file(self.invoice_pdf.path)
         if self.receipt_pdf:
             email.attach_file(self.receipt_pdf.path)
-    
+        
         email.send(fail_silently=False)
         return True
-
+    
     def generate_both(self):
         """Génère à la fois le ticket ET la facture"""
         self.generate_receipt()  # Ticket de caisse
         self.generate_invoice()  # Facture complète
         self.save()
-        #self.send_invoice_email() #Envoie la facture par mail
+        # self.send_invoice_email()  # Envoie la facture par mail
