@@ -225,16 +225,16 @@ class Invoice(models.Model):
         elements.append(Spacer(1, 3*mm))
         
         # ============ NOTES ============
-        if self.order.notes:
-            notes_style = ParagraphStyle(
-                'NotesTicket',
-                parent=styles['Normal'],
-                fontSize=7,
-                alignment=TA_LEFT,
-                spaceAfter=2
-            )
-            elements.append(Paragraph(f'<b>Notes:</b> {self.order.notes}', notes_style))
-            elements.append(Spacer(1, 2*mm))
+ #       if self.order.notes:
+  #          notes_style = ParagraphStyle(
+   #             'NotesTicket',
+    #            parent=styles['Normal'],
+     #           fontSize=7,
+      #          alignment=TA_LEFT,
+       #         spaceAfter=2
+        #    )
+         #   elements.append(Paragraph(f'<b>Notes:</b> {self.order.notes}', notes_style))
+          #  elements.append(Spacer(1, 2*mm)) 
         
         # ============ PIED DE PAGE ============
         footer_style = ParagraphStyle(
@@ -420,7 +420,7 @@ class Invoice(models.Model):
         elements.append(Spacer(1, 0.5*cm))
         
         # ============ NOTES DE COMMANDE ============
-        if self.order.notes:
+        if self.order.notes and self.order.notes.strip():  # 🆕 Vérifier que notes n'est pas vide
             notes_style = ParagraphStyle(
                 'NotesStyle',
                 parent=styles['Normal'],
