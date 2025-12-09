@@ -313,6 +313,11 @@ export default function Repairs() {
    * 4. Si seulement last_name existe → retourne last_name
    * 5. Si aucune information → retourne "Client inconnu"
    * 
+   * IMPORTANT : Le backend peut renvoyer les données dans deux formats :
+   * - Format direct : repair.client avec { id, first_name, last_name, ... }
+   * - Format imbriqué : repair.client_info avec { id, name, first_name, last_name, ... }
+   * Cette fonction gère les deux cas automatiquement.
+   * 
    * Cette fonction évite les affichages "undefined undefined" ou espaces vides
    * 
    * Exemples :
@@ -536,8 +541,12 @@ export default function Repairs() {
     if (repair) {
       // MODE ÉDITION : Pré-remplissage du formulaire
       setSelectedRepair(repair);
+      
+      // Le backend peut renvoyer soit repair.client soit repair.client_info
+      const clientData = repair.client_info || repair.client;
+      
       setFormData({
-        client: repair.client.id,
+        client: clientData.id,
         store: repair.store,
         bike_brand: repair.bike_brand,
         bike_model: repair.bike_model,
@@ -554,7 +563,7 @@ export default function Repairs() {
         max_budget: repair.max_budget || ''
       });
       // Affichage du nom du client avec la fonction utilitaire
-      const clientName = getClientFullName(repair.client);
+      const clientName = getClientFullName(clientData);
       setSelectedClientName(clientName);
       setClientSearch(clientName);
     } else {
@@ -831,7 +840,9 @@ export default function Repairs() {
    */
   const filteredRepairs = repairs.filter(repair => {
     // 1. Recherche globale
-    const clientName = getClientFullName(repair.client);
+    // Le backend peut renvoyer soit repair.client soit repair.client_info
+    const clientData = repair.client_info || repair.client;
+    const clientName = getClientFullName(clientData);
     
     const matchesSearch = 
       repair.reference_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -935,7 +946,7 @@ export default function Repairs() {
 
           <!-- Informations principales -->
           <div class="ticket-section"><span class="bold">Réf:</span> ${repair.reference_number || '—'}</div>
-          <div class="ticket-section"><span class="bold">Client:</span> ${getClientFullName(repair.client)}</div>
+          <div class="ticket-section"><span class="bold">Client:</span> ${getClientFullName(repair.client_info || repair.client)}</div>
           <div class="ticket-section"><span class="bold">Vélo:</span> ${repair.bike_brand} ${repair.bike_model}</div>
           ${repair.bike_serial_number ? `<div class="ticket-section"><span class="bold">N° série:</span> ${repair.bike_serial_number}</div>` : ''}
           <div class="line"></div>
@@ -1090,7 +1101,7 @@ export default function Repairs() {
                     
                     {/* Client */}
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {getClientFullName(repair.client)}
+                      {getClientFullName(repair.client_info || repair.client)}
                     </td>
                     
                     {/* Vélo */}
@@ -1592,7 +1603,7 @@ export default function Repairs() {
                 </div>
                 <div>
                   <p className="text-sm font-medium text-gray-500 mb-1">Client</p>
-                  <p>{getClientFullName(selectedRepair.client)}</p>
+                  <p>{getClientFullName(selectedRepair.client_info || selectedRepair.client)}</p>
                 </div>
               </div>
 
