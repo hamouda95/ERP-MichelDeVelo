@@ -300,6 +300,48 @@ export default function Repairs() {
     setTimeout(() => setNotification({ show: false, message: '', type: 'success' }), 3000);
   }, []);
 
+  /**
+   * Formate le nom complet d'un client de manière robuste
+   * 
+   * @param {Object} client - Objet client contenant les informations
+   * @returns {string} - Nom formaté du client
+   * 
+   * GESTION DES CAS :
+   * 1. Si client.name existe → retourne client.name
+   * 2. Si first_name ET last_name existent → retourne "Prénom Nom"
+   * 3. Si seulement first_name existe → retourne first_name
+   * 4. Si seulement last_name existe → retourne last_name
+   * 5. Si aucune information → retourne "Client inconnu"
+   * 
+   * Cette fonction évite les affichages "undefined undefined" ou espaces vides
+   * 
+   * Exemples :
+   * getClientFullName({ name: "Jean Dupont" }) → "Jean Dupont"
+   * getClientFullName({ first_name: "Jean", last_name: "Dupont" }) → "Jean Dupont"
+   * getClientFullName({ first_name: "Jean" }) → "Jean"
+   * getClientFullName({}) → "Client inconnu"
+   */
+  const getClientFullName = useCallback((client) => {
+    if (!client) return 'Client inconnu';
+    
+    // Cas 1 : Le champ 'name' existe déjà (format complet)
+    if (client.name) return client.name;
+    
+    // Cas 2 : Construction à partir de first_name et last_name
+    const firstName = client.first_name?.trim() || '';
+    const lastName = client.last_name?.trim() || '';
+    
+    if (firstName && lastName) {
+      return `${firstName} ${lastName}`;
+    }
+    
+    if (firstName) return firstName;
+    if (lastName) return lastName;
+    
+    // Cas par défaut : aucune information disponible
+    return 'Client inconnu';
+  }, []);
+
   // ============================================================================
   // FONCTIONS DE RÉCUPÉRATION DES DONNÉES (API)
   // ============================================================================
@@ -511,9 +553,10 @@ export default function Repairs() {
         estimated_completion: repair.estimated_completion || '',
         max_budget: repair.max_budget || ''
       });
-      // Affichage du nom du client
-      setSelectedClientName(repair.client.name || `${repair.client.first_name} ${repair.client.last_name}`);
-      setClientSearch(repair.client.name || `${repair.client.first_name} ${repair.client.last_name}`);
+      // Affichage du nom du client avec la fonction utilitaire
+      const clientName = getClientFullName(repair.client);
+      setSelectedClientName(clientName);
+      setClientSearch(clientName);
     } else {
       // MODE CRÉATION : Réinitialisation complète
       setSelectedRepair(null);
@@ -565,6 +608,7 @@ export default function Repairs() {
    * - Affiche une notification de succès
    * - Rafraîchit la liste des réparations
    * - Ferme le modal
+   * - Réinitialise la recherche client pour éviter les problèmes d'affichage
    * 
    * EN CAS D'ERREUR :
    * - Affiche une notification d'erreur avec le message de l'API
@@ -609,6 +653,12 @@ export default function Repairs() {
       // Rafraîchissement de la liste et fermeture du modal
       await fetchRepairs();
       setShowModal(false);
+      
+      // Réinitialisation de la recherche client pour éviter les problèmes
+      setClientSearch('');
+      setSelectedClientName('');
+      setClientSearchResults([]);
+      
     } catch (error) {
       console.error('Erreur:', error);
       showNotification(
@@ -781,9 +831,11 @@ export default function Repairs() {
    */
   const filteredRepairs = repairs.filter(repair => {
     // 1. Recherche globale
+    const clientName = getClientFullName(repair.client);
+    
     const matchesSearch = 
       repair.reference_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      repair.client?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       repair.bike_brand?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       repair.bike_model?.toLowerCase().includes(searchTerm.toLowerCase());
     
@@ -794,7 +846,6 @@ export default function Repairs() {
     const matchesStore = filterStore === 'all' || repair.store === filterStore;
     
     // 4. Filtre par nom de client
-    const clientName = repair.client?.name || `${repair.client?.first_name || ''} ${repair.client?.last_name || ''}`;
     const matchesClientName = !filterClientName || clientName.toLowerCase().includes(filterClientName.toLowerCase());
     
     // 5. Filtre par date
@@ -884,7 +935,7 @@ export default function Repairs() {
 
           <!-- Informations principales -->
           <div class="ticket-section"><span class="bold">Réf:</span> ${repair.reference_number || '—'}</div>
-          <div class="ticket-section"><span class="bold">Client:</span> ${repair.client?.name || repair.client?.first_name + ' ' + repair.client?.last_name}</div>
+          <div class="ticket-section"><span class="bold">Client:</span> ${getClientFullName(repair.client)}</div>
           <div class="ticket-section"><span class="bold">Vélo:</span> ${repair.bike_brand} ${repair.bike_model}</div>
           ${repair.bike_serial_number ? `<div class="ticket-section"><span class="bold">N° série:</span> ${repair.bike_serial_number}</div>` : ''}
           <div class="line"></div>
@@ -1039,7 +1090,7 @@ export default function Repairs() {
                     
                     {/* Client */}
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {repair.client?.name || `${repair.client?.first_name || ''} ${repair.client?.last_name || ''}`}
+                      {getClientFullName(repair.client)}
                     </td>
                     
                     {/* Vélo */}
@@ -1541,7 +1592,7 @@ export default function Repairs() {
                 </div>
                 <div>
                   <p className="text-sm font-medium text-gray-500 mb-1">Client</p>
-                  <p>{selectedRepair.client?.name || `${selectedRepair.client?.first_name} ${selectedRepair.client?.last_name}`}</p>
+                  <p>{getClientFullName(selectedRepair.client)}</p>
                 </div>
               </div>
 
