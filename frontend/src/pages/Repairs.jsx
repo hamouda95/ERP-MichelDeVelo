@@ -1485,12 +1485,11 @@ export default function Repairs() {
                       onChange={(e) => setFormData({ ...formData, status: e.target.value })}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     >
-                      <option value="pending">En attente</option>
+                      <option value="all">Tous les statuts</option>
                       <option value="in_progress">En cours</option>
                       <option value="waiting_parts">Attente pièces</option>
                       <option value="completed">Terminée</option>
-                      <option value="delivered">Livrée</option>
-                      <option value="cancelled">Annulée</option>
+                      <option value="delivered">Cloturé</option>                      
                     </select>
                   </div>
                   
@@ -1825,5 +1824,6 @@ export default function Repairs() {
     </div>
   );
 }
+
 
 
