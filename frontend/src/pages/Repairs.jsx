@@ -59,6 +59,7 @@ import {
   TrashIcon,
   EyeIcon,
   PrinterIcon,
+  QrCodeIcon
 } from '@heroicons/react/24/outline';
 import { repairsAPI, clientsAPI, productsAPI } from '../services/api';
 
@@ -228,6 +229,10 @@ export default function Repairs() {
     product: '',                   // ID du produit
     quantity: 1                    // Quantité par défaut
   });
+  
+  // États pour la recherche de produits (comme Cart.jsx)
+  const [productSearch, setProductSearch] = useState('');
+  const [isSearchingProduct, setIsSearchingProduct] = useState(false);
 
   // ============================================================================
   // CONFIGURATIONS - STATUTS ET PRIORITÉS
@@ -238,20 +243,16 @@ export default function Repairs() {
    * Chaque statut a un label (texte affiché) et une couleur (classes Tailwind)
    * 
    * Statuts disponibles :
-   * - pending : Réparation en attente de prise en charge
    * - in_progress : Réparation en cours de traitement
    * - waiting_parts : En attente de réception des pièces
    * - completed : Réparation terminée, en attente de retrait
    * - delivered : Vélo retiré par le client
-   * - cancelled : Réparation annulée
    */
   const statusConfig = {
-    pending: { label: 'En attente', color: 'bg-yellow-100 text-yellow-800' },
     in_progress: { label: 'En cours', color: 'bg-blue-100 text-blue-800' },
     waiting_parts: { label: 'Attente pièces', color: 'bg-gray-100 text-gray-800' },
     completed: { label: 'Terminée', color: 'bg-green-100 text-green-800' },
-    delivered: { label: 'Livrée', color: 'bg-purple-100 text-purple-800' },
-    cancelled: { label: 'Annulée', color: 'bg-red-100 text-red-800' }
+    delivered: { label: 'Cloturé', color: 'bg-purple-100 text-purple-800' }
   };
 
   /**
@@ -867,6 +868,122 @@ export default function Repairs() {
   });
 
   // ============================================================================
+  // RECHERCHE DE PRODUITS PAR CODE-BARRE OU TEXTE (INSPIRÉ DE CART.JSX)
+  // ============================================================================
+  
+  /**
+   * Recherche un produit par code-barre via l'API
+   */
+  const handleProductBarcodeSearch = useCallback(async (barcode) => {
+    if (!barcode.trim() || isSearchingProduct) return;
+    setIsSearchingProduct(true);
+    
+    try {
+      const response = await productsAPI.searchByBarcode(barcode);
+      const product = response.data;
+      
+      // Ajouter le produit aux pièces nécessaires
+      setFormData(prev => ({
+        ...prev,
+        parts_needed: [
+          ...prev.parts_needed,
+          {
+            product: product.id,
+            product_name: product.name,
+            quantity: 1,
+            unit_price: product.price_ttc
+          }
+        ]
+      }));
+      
+      showNotification(`✅ ${product.name} ajouté aux pièces nécessaires`, 'success');
+      setProductSearch('');
+    } catch (error) {
+      console.error('Erreur recherche produit:', error);
+      if (error.response?.status === 404) {
+        showNotification('❌ Produit non trouvé', 'error');
+      } else {
+        showNotification('❌ Erreur lors de la recherche du produit', 'error');
+      }
+      setProductSearch('');
+    } finally {
+      setIsSearchingProduct(false);
+    }
+  }, [isSearchingProduct, showNotification]);
+  
+  /**
+   * Gère la touche Entrée dans le champ de recherche produit
+   */
+  const handleProductSearchKeyPress = useCallback((e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const term = productSearch.trim().toLowerCase();
+  
+      // Recherche locale dans les produits déjà chargés
+      const localMatch = products.find(p =>
+        p.name.toLowerCase().includes(term) ||
+        p.reference.toLowerCase().includes(term) ||
+        (p.barcode && p.barcode.toLowerCase() === term)
+      );
+  
+      if (localMatch) {
+        // Produit trouvé localement
+        setFormData(prev => ({
+          ...prev,
+          parts_needed: [
+            ...prev.parts_needed,
+            {
+              product: localMatch.id,
+              product_name: localMatch.name,
+              quantity: 1,
+              unit_price: localMatch.price_ttc
+            }
+          ]
+        }));
+        showNotification(`✅ ${localMatch.name} ajouté aux pièces nécessaires`, 'success');
+        setProductSearch('');
+      } else {
+        // Recherche par code-barre via API
+        handleProductBarcodeSearch(productSearch);
+      }
+    }
+  }, [productSearch, products, handleProductBarcodeSearch, showNotification]);
+  
+  /**
+   * Filtre les produits selon le terme de recherche
+   */
+  const filteredProductsForSearch = useMemo(() => {
+    const term = productSearch.toLowerCase();
+    if (!term) return products;
+    
+    return products.filter(p =>
+      p.name.toLowerCase().includes(term) ||
+      p.reference.toLowerCase().includes(term) ||
+      (p.barcode && p.barcode.toLowerCase().includes(term))
+    );
+  }, [products, productSearch]);
+  
+  /**
+   * Ajoute un produit depuis la liste filtrée
+   */
+  const handleAddProductFromList = useCallback((product) => {
+    setFormData(prev => ({
+      ...prev,
+      parts_needed: [
+        ...prev.parts_needed,
+        {
+          product: product.id,
+          product_name: product.name,
+          quantity: 1,
+          unit_price: product.price_ttc
+        }
+      ]
+    }));
+    showNotification(`✅ ${product.name} ajouté aux pièces nécessaires`, 'success');
+    setProductSearch('');
+  }, [showNotification]);
+
+  // ============================================================================
   // IMPRESSION LOCALE (FRONTEND) - TICKET THERMIQUE
   // ============================================================================
 
@@ -1022,12 +1139,10 @@ export default function Repairs() {
             className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
             <option value="all">Tous les statuts</option>
-            <option value="pending">En attente</option>
             <option value="in_progress">En cours</option>
             <option value="waiting_parts">Attente pièces</option>
             <option value="completed">Terminée</option>
-            <option value="delivered">Livrée</option>
-            <option value="cancelled">Annulée</option>
+            <option value="delivered">Cloturé</option>
           </select>
 
           {/* Filtre par magasin */}
@@ -1131,11 +1246,6 @@ export default function Repairs() {
                     {/* Date de création */}
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {repair.created_at ? new Date(repair.created_at).toLocaleDateString('fr-FR') : '-'}
-                    </td>
-                    
-                    {/* Coût estimé */}
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {repair.estimated_cost ? `${repair.estimated_cost}€` : '-'}
                     </td>
                     
                     {/* Actions */}
@@ -1338,28 +1448,6 @@ export default function Repairs() {
                       placeholder="Budget max"
                     />
                   </div>
-
-                  {/* Coût estimé avec indication visuelle si dépasse le budget */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Coût estimé (€)
-                    </label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={formData.estimated_cost || ''}
-                      onChange={(e) => setFormData({ ...formData, estimated_cost: e.target.value })}
-                      className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 ${
-                        formData.max_budget && formData.estimated_cost
-                          ? parseFloat(formData.estimated_cost) > parseFloat(formData.max_budget)
-                            ? 'bg-red-100'  // Rouge si dépasse le budget
-                            : 'bg-green-100' // Vert si dans le budget
-                          : ''
-                      }`}
-                      placeholder="Coût estimé"
-                    />
-                  </div>
                 </div>
 
                 {/* ============================================================
@@ -1380,19 +1468,7 @@ export default function Repairs() {
                     />
                   </div>
                   
-                  {/* N° de série */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      N° de série
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.bike_serial_number}
-                      onChange={(e) => setFormData({ ...formData, bike_serial_number: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                      placeholder="N° de série du vélo"
-                    />
-                  </div>
+                 
                 </div>
 
                 {/* ============================================================
@@ -1450,61 +1526,59 @@ export default function Repairs() {
                 </div>
 
                 {/* ============================================================
-                    SECTION 6 : Diagnostic
+                    SECTION : Pièces nécessaires avec recherche avancée
                     ============================================================ */}
                 <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Diagnostic
-                  </label>
-                  <textarea
-                    value={formData.diagnosis}
-                    onChange={(e) => setFormData({ ...formData, diagnosis: e.target.value })}
-                    rows="2"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    placeholder="Diagnostic technique..."
-                  />
-                </div>
-
-                {/* ============================================================
-                    SECTION 7 : Pièces nécessaires
-                    ============================================================ */}
-                <div className="mb-4">
-                  <h3 className="text-lg font-semibold mb-3">Pièces nécessaires</h3>
+                  <h3 className="text-lg font-semibold mb-3">🔧 Pièces nécessaires</h3>
                   
-                  {/* Formulaire d'ajout de pièce */}
-                  <div className="flex gap-2 mb-3">
-                    {/* Sélection du produit */}
-                    <select
-                      value={newPart.product}
-                      onChange={(e) => setNewPart({ ...newPart, product: e.target.value })}
-                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="">Sélectionner un produit</option>
-                      {products.map(product => (
-                        <option key={product.id} value={product.id}>
-                          {product.name} - {product.price}€
-                        </option>
-                      ))}
-                    </select>
+                  {/* Barre de recherche universelle */}
+                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border-2 border-blue-200 mb-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <QrCodeIcon className="w-6 h-6 text-blue-600" />
+                      <label className="text-sm font-medium text-gray-700">
+                        Rechercher / Scanner un produit
+                      </label>
+                      {isSearchingProduct && (
+                        <span className="ml-auto px-2 py-1 bg-blue-600 text-white text-xs font-semibold rounded-full animate-pulse">
+                          Recherche...
+                        </span>
+                      )}
+                    </div>
                     
-                    {/* Quantité */}
                     <input
-                      type="number"
-                      min="1"
-                      value={newPart.quantity}
-                      onChange={(e) => setNewPart({ ...newPart, quantity: parseInt(e.target.value) })}
-                      className="w-24 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                      placeholder="Qté"
+                      type="text"
+                      value={productSearch}
+                      onChange={(e) => setProductSearch(e.target.value)}
+                      onKeyPress={handleProductSearchKeyPress}
+                      placeholder="Scannez ou saisissez le nom, référence ou code-barre..."
+                      className="w-full px-4 py-3 text-sm border-2 border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition disabled:bg-gray-100"
+                      disabled={isSearchingProduct}
+                      autoComplete="off"
                     />
                     
-                    {/* Bouton Ajouter */}
-                    <button
-                      type="button"
-                      onClick={handleAddPart}
-                      className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
-                    >
-                      Ajouter
-                    </button>
+                    {/* Liste des produits filtrés */}
+                    {productSearch && filteredProductsForSearch.length > 0 && (
+                      <div className="mt-3 max-h-60 overflow-y-auto space-y-2 bg-white rounded-lg p-2 border border-gray-200">
+                        {filteredProductsForSearch.slice(0, 10).map((product) => (
+                          <div
+                            key={product.id}
+                            className="flex items-center justify-between p-2 hover:bg-gray-50 rounded cursor-pointer border border-transparent hover:border-blue-200 transition"
+                            onClick={() => handleAddProductFromList(product)}
+                          >
+                            <div className="flex-1">
+                              <p className="font-semibold text-sm text-gray-900">{product.name}</p>
+                              <p className="text-xs text-gray-600">
+                                Réf: {product.reference}
+                                {product.barcode && ` • CB: ${product.barcode}`}
+                              </p>
+                            </div>
+                            <div className="text-right ml-4">
+                              <p className="font-bold text-blue-600">{product.price_ttc} €</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   
                   {/* Liste des pièces ajoutées */}
@@ -1515,6 +1589,7 @@ export default function Repairs() {
                           <tr>
                             <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Produit</th>
                             <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Quantité</th>
+                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Prix</th>
                             <th className="px-4 py-2"></th>
                           </tr>
                         </thead>
@@ -1522,13 +1597,26 @@ export default function Repairs() {
                           {formData.parts_needed.map((part, index) => (
                             <tr key={index}>
                               <td className="px-4 py-2 text-sm">{part.product_name}</td>
-                              <td className="px-4 py-2 text-sm">{part.quantity}</td>
+                              <td className="px-4 py-2">
+                                <input
+                                  type="number"
+                                  min="1"
+                                  value={part.quantity}
+                                  onChange={(e) => {
+                                    const newParts = [...formData.parts_needed];
+                                    newParts[index].quantity = parseInt(e.target.value) || 1;
+                                    setFormData({ ...formData, parts_needed: newParts });
+                                  }}
+                                  className="w-20 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+                                />
+                              </td>
+                              <td className="px-4 py-2 text-sm font-medium">{part.unit_price} €</td>
                               <td className="px-4 py-2 text-right">
-                                {/* Bouton Supprimer la pièce */}
                                 <button
                                   type="button"
                                   onClick={() => handleRemovePart(index)}
                                   className="text-red-600 hover:text-red-900"
+                                  title="Supprimer"
                                 >
                                   <TrashIcon className="w-4 h-4" />
                                 </button>
@@ -1631,10 +1719,6 @@ export default function Repairs() {
                   <p className="text-sm font-medium text-gray-500 mb-1">Modèle</p>
                   <p>{selectedRepair.bike_model || '-'}</p>
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-500 mb-1">N° de série</p>
-                  <p>{selectedRepair.bike_serial_number || '-'}</p>
-                </div>
               </div>
 
               {/* Priorité et Coûts */}
@@ -1649,14 +1733,8 @@ export default function Repairs() {
                   <p className="text-sm font-medium text-gray-500 mb-1">Budget MAX</p>
                   <p>{selectedRepair.max_budget ? `${selectedRepair.max_budget}€` : '-'}</p>
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-500 mb-1">Coût estimé</p>
-                  <p>{selectedRepair.estimated_cost ? `${selectedRepair.estimated_cost}€` : '-'}</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-500 mb-1">Coût final</p>
-                  <p>{selectedRepair.final_cost ? `${selectedRepair.final_cost}€` : '-'}</p>
-                </div>
+                
+                
               </div>
 
               {/* Description */}
@@ -1667,13 +1745,7 @@ export default function Repairs() {
                 </div>
               )}
 
-              {/* Diagnostic */}
-              {selectedRepair.diagnosis && (
-                <div className="mb-4">
-                  <p className="text-sm font-medium text-gray-500 mb-1">Diagnostic</p>
-                  <p className="text-gray-700">{selectedRepair.diagnosis}</p>
-                </div>
-              )}
+              
 
               {/* Pièces nécessaires */}
               {selectedRepair.parts_needed && selectedRepair.parts_needed.length > 0 && (
@@ -1753,3 +1825,4 @@ export default function Repairs() {
     </div>
   );
 }
+
