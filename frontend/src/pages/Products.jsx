@@ -91,8 +91,7 @@ export default function Products() {
     const lowStockProducts = products.filter(p => getTotalStock(p) > 0 && (typeof p.alert_stock === 'number' ? getTotalStock(p) < p.alert_stock : p.is_low_stock));
     const activeProducts = products.filter(p => p.is_visible).length;
     const totalStock = products.reduce((sum, p) => sum + getTotalStock(p), 0);
-    //const stockValue = products.reduce((sum, p) => sum + (Number(p.price_ttc) || 0) * getTotalStock(p), 0);
-    const stockValue = products.reduce((sum, p) => p.productType !== 'prestation'? sum + (Number(p.price_ttc) || 0) * getTotalStock(p) : sum,0);
+    const stockValue = products.reduce((sum, p) => p.product_type !== 'prestation' ? sum + (Number(p.price_ttc) || 0) * getTotalStock(p) : sum, 0);
     const totalStockVilleAvray = products.reduce((sum, p) => sum + (Number(p.stock_ville_avray) || 0), 0);
     const totalStockGarches = products.reduce((sum, p) => sum + (Number(p.stock_garches) || 0), 0);
 
