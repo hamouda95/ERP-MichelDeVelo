@@ -299,7 +299,7 @@ export default function Purchases() {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Magasin</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Livraison</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Montant</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Montant TTC</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Statut</th>
               <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
             </tr>
@@ -698,3 +698,4 @@ export default function Purchases() {
     </div>
   );
 }
+
