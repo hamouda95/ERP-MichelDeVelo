@@ -29,7 +29,7 @@ export default function Clients() {
       setClients(clientsData);
       setFilteredClients(clientsData);
     } catch (error) {
-      console.error(error);
+      console.error('Error loading clients:', error);
       toast.error(error.response?.data?.message || 'Erreur lors du chargement des clients');
     } finally {
       setLoading(false);
@@ -79,7 +79,7 @@ export default function Clients() {
       toast.success('Client supprimé avec succès');
       await loadClients();
     } catch (error) {
-      console.error(error);
+      console.error('Error deleting client:', error);
       toast.error(error.response?.data?.message || 'Erreur lors de la suppression du client');
     } finally {
       setShowDeleteModal(false);
@@ -238,7 +238,7 @@ export default function Clients() {
   );
 }
 
-/* ---------- MODAL D’AJOUT / MODIFICATION CLIENT ---------- */
+/* ---------- MODAL D'AJOUT / MODIFICATION CLIENT ---------- */
 function ClientModal({ client, onClose, onSave }) {
   const [formData, setFormData] = useState({
     first_name: client?.first_name || '',
@@ -248,42 +248,109 @@ function ClientModal({ client, onClose, onSave }) {
     address: client?.address || '',
     city: client?.city || '',
     postal_code: client?.postal_code || '',
+    country: client?.country || 'France',
   });
   const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState({});
 
   const handleChange = (e) => {
-    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+    // Clear error for this field when user starts typing
+    if (errors[name]) {
+      setErrors((prev) => ({ ...prev, [name]: null }));
+    }
+  };
+
+  const validateForm = () => {
+    const newErrors = {};
+
+    // Validate required fields
+    if (!formData.first_name.trim()) {
+      newErrors.first_name = 'Le prénom est requis';
+    }
+    if (!formData.last_name.trim()) {
+      newErrors.last_name = 'Le nom est requis';
+    }
+    if (!formData.email.trim()) {
+      newErrors.email = "L'email est requis";
+    } else if (!formData.email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
+      newErrors.email = 'Adresse email invalide';
+    }
+    if (!formData.phone.trim()) {
+      newErrors.phone = 'Le téléphone est requis';
+    } else if (!formData.phone.match(/^[0-9\s+()-]+$/)) {
+      newErrors.phone = 'Numéro de téléphone invalide';
+    } else {
+      const digitsOnly = formData.phone.replace(/[^0-9]/g, '');
+      if (digitsOnly.length < 10) {
+        newErrors.phone = 'Le numéro doit contenir au moins 10 chiffres';
+      }
+    }
+
+    // Validate postal code if provided
+    if (formData.postal_code && !formData.postal_code.match(/^\d{5}$/)) {
+      newErrors.postal_code = 'Le code postal doit contenir 5 chiffres';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!formData.email.match(/^[^@\s]+@[^@\s]+\.[^@\s]+$/)) {
-      toast.error('Adresse email invalide');
-      return;
-    }
-
-    if (!formData.phone.match(/^[0-9\s+()-]+$/)) {
-      toast.error('Numéro de téléphone invalide');
+    // Client-side validation
+    if (!validateForm()) {
+      toast.error('Veuillez corriger les erreurs du formulaire');
       return;
     }
 
     setLoading(true);
     try {
+      // Prepare data - trim all string values
+      const dataToSend = {
+        first_name: formData.first_name.trim(),
+        last_name: formData.last_name.trim(),
+        email: formData.email.trim().toLowerCase(),
+        phone: formData.phone.trim(),
+        address: formData.address.trim(),
+        city: formData.city.trim(),
+        postal_code: formData.postal_code.trim(),
+        country: formData.country.trim(),
+      };
+
       if (client) {
-        await clientsAPI.update(client.id, formData);
+        await clientsAPI.update(client.id, dataToSend);
         toast.success('Client modifié avec succès');
       } else {
-        await clientsAPI.create(formData);
+        await clientsAPI.create(dataToSend);
         toast.success('Client créé avec succès');
       }
       onSave();
     } catch (error) {
-      console.error(error);
-      toast.error(
-        error.response?.data?.message ||
-          `Erreur lors de ${client ? 'la modification' : 'la création'} du client`
-      );
+      console.error('Error saving client:', error);
+      console.error('Error response:', error.response?.data);
+      
+      // Handle validation errors from backend
+      if (error.response?.data?.errors) {
+        const backendErrors = error.response.data.errors;
+        setErrors(backendErrors);
+        
+        // Show specific error messages
+        if (backendErrors.email) {
+          toast.error(Array.isArray(backendErrors.email) ? backendErrors.email[0] : backendErrors.email);
+        } else if (backendErrors.phone) {
+          toast.error(Array.isArray(backendErrors.phone) ? backendErrors.phone[0] : backendErrors.phone);
+        } else {
+          toast.error('Erreur de validation. Veuillez vérifier les champs.');
+        }
+      } else {
+        toast.error(
+          error.response?.data?.message ||
+            `Erreur lors de ${client ? 'la modification' : 'la création'} du client`
+        );
+      }
     } finally {
       setLoading(false);
     }
@@ -292,30 +359,96 @@ function ClientModal({ client, onClose, onSave }) {
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 bg-white border-b p-6 flex items-center justify-between">
+        <div className="sticky top-0 bg-white border-b p-6 flex items-center justify-between z-10">
           <h2 className="text-2xl font-bold text-gray-900">
             {client ? 'Modifier le client' : 'Nouveau client'}
           </h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+          <button 
+            onClick={onClose} 
+            className="text-gray-400 hover:text-gray-600 transition"
+            type="button"
+          >
             <XMarkIcon className="w-6 h-6" />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <Input label="Prénom" name="first_name" value={formData.first_name} onChange={handleChange} required />
-            <Input label="Nom" name="last_name" value={formData.last_name} onChange={handleChange} required />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Input 
+              label="Prénom" 
+              name="first_name" 
+              value={formData.first_name} 
+              onChange={handleChange} 
+              required 
+              error={errors.first_name}
+            />
+            <Input 
+              label="Nom" 
+              name="last_name" 
+              value={formData.last_name} 
+              onChange={handleChange} 
+              required 
+              error={errors.last_name}
+            />
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <Input label="Email" name="email" type="email" value={formData.email} onChange={handleChange} required />
-            <Input label="Téléphone" name="phone" type="tel" value={formData.phone} onChange={handleChange} required />
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Input 
+              label="Email" 
+              name="email" 
+              type="email" 
+              value={formData.email} 
+              onChange={handleChange} 
+              required 
+              error={errors.email}
+            />
+            <Input 
+              label="Téléphone" 
+              name="phone" 
+              type="tel" 
+              value={formData.phone} 
+              onChange={handleChange} 
+              required 
+              error={errors.phone}
+              placeholder="Ex: 01 23 45 67 89"
+            />
           </div>
-          <Input label="Adresse" name="address" value={formData.address} onChange={handleChange} />
-          <div className="grid grid-cols-2 gap-4">
-            <Input label="Code postal" name="postal_code" value={formData.postal_code} onChange={handleChange} />
-            <Input label="Ville" name="city" value={formData.city} onChange={handleChange} />
+
+          <Input 
+            label="Adresse" 
+            name="address" 
+            value={formData.address} 
+            onChange={handleChange} 
+            error={errors.address}
+          />
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Input 
+              label="Code postal" 
+              name="postal_code" 
+              value={formData.postal_code} 
+              onChange={handleChange} 
+              error={errors.postal_code}
+              placeholder="75001"
+              maxLength={5}
+            />
+            <Input 
+              label="Ville" 
+              name="city" 
+              value={formData.city} 
+              onChange={handleChange} 
+              error={errors.city}
+            />
+            <Input 
+              label="Pays" 
+              name="country" 
+              value={formData.country} 
+              onChange={handleChange} 
+              error={errors.country}
+            />
           </div>
-          <div className="flex gap-4 pt-4 border-t">
+
+          <div className="flex gap-4 pt-6 border-t mt-6">
             <button
               type="button"
               onClick={onClose}
@@ -326,9 +459,19 @@ function ClientModal({ client, onClose, onSave }) {
             <button
               type="submit"
               disabled={loading}
-              className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition disabled:opacity-50"
+              className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? 'Enregistrement...' : client ? 'Modifier' : 'Créer'}
+              {loading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Enregistrement...
+                </span>
+              ) : (
+                client ? 'Modifier' : 'Créer'
+              )}
             </button>
           </div>
         </form>
@@ -338,7 +481,7 @@ function ClientModal({ client, onClose, onSave }) {
 }
 
 /* ---------- INPUT RÉUTILISABLE ---------- */
-function Input({ label, name, type = 'text', value, onChange, required = false }) {
+function Input({ label, name, type = 'text', value, onChange, required = false, error = null, placeholder = '', maxLength }) {
   return (
     <div>
       <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -350,8 +493,17 @@ function Input({ label, name, type = 'text', value, onChange, required = false }
         value={value}
         onChange={onChange}
         required={required}
-        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
+        placeholder={placeholder}
+        maxLength={maxLength}
+        className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:outline-none transition ${
+          error 
+            ? 'border-red-500 focus:ring-red-500' 
+            : 'border-gray-300 focus:ring-blue-500'
+        }`}
       />
+      {error && (
+        <p className="mt-1 text-sm text-red-600">{error}</p>
+      )}
     </div>
   );
 }
@@ -380,16 +532,27 @@ function DeleteConfirmModal({ client, onClose, onConfirm }) {
         <div className="flex gap-4">
           <button
             onClick={onClose}
-            className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-50 transition"
+            disabled={loading}
+            className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-50 transition disabled:opacity-50"
           >
             Annuler
           </button>
           <button
             onClick={handleConfirm}
             disabled={loading}
-            className="flex-1 px-6 py-3 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition disabled:opacity-50"
+            className="flex-1 px-6 py-3 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {loading ? 'Suppression...' : 'Supprimer'}
+            {loading ? (
+              <span className="flex items-center justify-center gap-2">
+                <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Suppression...
+              </span>
+            ) : (
+              'Supprimer'
+            )}
           </button>
         </div>
       </div>
