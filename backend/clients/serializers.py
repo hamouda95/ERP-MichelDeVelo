@@ -1,59 +1,96 @@
-from rest_framework import serializers
+from rest_framework import viewsets, filters, status
+from rest_framework.response import Response
+from rest_framework.decorators import action
+from django.db.models import Q
 from .models import Client
-import re
+from .serializers import ClientSerializer
 
 
-class ClientSerializer(serializers.ModelSerializer):
-    full_name = serializers.ReadOnlyField()
+class ClientViewSet(viewsets.ModelViewSet):
+    queryset = Client.objects.all()
+    serializer_class = ClientSerializer
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['first_name', 'last_name', 'email', 'phone']
+    ordering_fields = ['created_at', 'last_name', 'first_name']
+    ordering = ['-created_at']
     
-    class Meta:
-        model = Client
-        fields = '__all__'
-        read_only_fields = ['id', 'created_at', 'updated_at', 'full_name', 'total_purchases', 'visit_count']
-    
-    def validate_email(self, value):
-        """Validate email format"""
-        if value:
-            value = value.lower().strip()
-            email_regex = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-            if not re.match(email_regex, value):
-                raise serializers.ValidationError("Format d'email invalide")
-        return value
-    
-    def validate_phone(self, value):
-        """Validate phone format"""
-        if value:
-            value = value.strip()
-            # Allow digits, spaces, +, (), -
-            phone_regex = r'^[0-9\s+()-]+$'
-            if not re.match(phone_regex, value):
-                raise serializers.ValidationError("Format de téléphone invalide")
-            # Check minimum length (at least 10 digits)
-            digits_only = re.sub(r'[^0-9]', '', value)
-            if len(digits_only) < 10:
-                raise serializers.ValidationError("Le numéro de téléphone doit contenir au moins 10 chiffres")
-        return value
-    
-    def validate_postal_code(self, value):
-        """Validate postal code format"""
-        if value:
-            value = value.strip()
-            # French postal code format (5 digits)
-            if len(value) > 0 and not re.match(r'^\d{5}$', value):
-                raise serializers.ValidationError("Le code postal doit contenir 5 chiffres")
-        return value
-    
-    def validate(self, data):
-        """Additional validation"""
-        # Check if email is unique (for updates)
-        if self.instance:  # Update case
-            email = data.get('email', self.instance.email)
-            if email != self.instance.email:
-                if Client.objects.filter(email=email).exists():
-                    raise serializers.ValidationError({'email': 'Un client avec cet email existe déjà'})
-        else:  # Create case
-            email = data.get('email')
-            if email and Client.objects.filter(email=email).exists():
-                raise serializers.ValidationError({'email': 'Un client avec cet email existe déjà'})
+    def create(self, request, *args, **kwargs):
+        """Create a new client with better error handling"""
+        serializer = self.get_serializer(data=request.data)
         
-        return data
+        try:
+            serializer.is_valid(raise_exception=True)
+            self.perform_create(serializer)
+            headers = self.get_success_headers(serializer.data)
+            return Response(
+                serializer.data,
+                status=status.HTTP_201_CREATED,
+                headers=headers
+            )
+        except Exception as e:
+            # Handle validation errors
+            if hasattr(e, 'detail'):
+                return Response(
+                    {'message': 'Erreur de validation', 'errors': e.detail},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            return Response(
+                {'message': str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+    
+    def update(self, request, *args, **kwargs):
+        """Update a client with better error handling"""
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        
+        try:
+            serializer.is_valid(raise_exception=True)
+            self.perform_update(serializer)
+            return Response(serializer.data)
+        except Exception as e:
+            # Handle validation errors
+            if hasattr(e, 'detail'):
+                return Response(
+                    {'message': 'Erreur de validation', 'errors': e.detail},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            return Response(
+                {'message': str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+    
+    def destroy(self, request, *args, **kwargs):
+        """Delete a client"""
+        try:
+            instance = self.get_object()
+            self.perform_destroy(instance)
+            return Response(
+                {'message': 'Client supprimé avec succès'},
+                status=status.HTTP_204_NO_CONTENT
+            )
+        except Exception as e:
+            return Response(
+                {'message': f'Erreur lors de la suppression: {str(e)}'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+    
+    @action(detail=False, methods=['get'])
+    def search(self, request):
+        """Advanced search endpoint"""
+        search_term = request.query_params.get('q', '')
+        
+        if not search_term:
+            queryset = self.get_queryset()
+        else:
+            queryset = self.get_queryset().filter(
+                Q(first_name__icontains=search_term) |
+                Q(last_name__icontains=search_term) |
+                Q(email__icontains=search_term) |
+                Q(phone__icontains=search_term) |
+                Q(city__icontains=search_term)
+            )
+        
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
