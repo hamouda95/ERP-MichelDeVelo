@@ -6,13 +6,13 @@ class Client(models.Model):
     email = models.EmailField(unique=True)
     phone = models.CharField(max_length=20)
     
-    address = models.CharField(max_length=255, blank=True)
-    city = models.CharField(max_length=100, blank=True)
-    postal_code = models.CharField(max_length=10, blank=True)
+    address = models.CharField(max_length=255, blank=True, default='')
+    city = models.CharField(max_length=100, blank=True, default='')
+    postal_code = models.CharField(max_length=10, blank=True, default='')
     country = models.CharField(max_length=100, default='France')
     
     date_of_birth = models.DateField(null=True, blank=True)
-    notes = models.TextField(blank=True)
+    notes = models.TextField(blank=True, default='')
     
     is_active = models.BooleanField(default=True)
     total_purchases = models.DecimalField(max_digits=10, decimal_places=2, default=0)
