@@ -1,4 +1,4 @@
-setuptools>=82.0.1
+setuptools==70.0.0
 wheel
 
 Django==4.2.7
