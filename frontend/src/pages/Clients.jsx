@@ -264,19 +264,11 @@ function ClientModal({ client, onClose, onSave }) {
 
   const validateForm = () => {
     const newErrors = {};
-
-    // Validate required fields
-    if (!formData.first_name.trim()) {
-      newErrors.first_name = 'Le prénom est requis';
-    }
-    if (!formData.last_name.trim()) {
-      newErrors.last_name = 'Le nom est requis';
-    }
-    if (!formData.email.trim()) {
-      newErrors.email = "L'email est requis";
-    } else if (!formData.email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
+    if (formData.email && !formData.email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
       newErrors.email = 'Adresse email invalide';
     }
+    // Validate required fields
+   
     if (!formData.phone.trim()) {
       newErrors.phone = 'Le téléphone est requis';
     } else if (!formData.phone.match(/^[0-9\s+()-]+$/)) {
@@ -286,11 +278,6 @@ function ClientModal({ client, onClose, onSave }) {
       if (digitsOnly.length < 10) {
         newErrors.phone = 'Le numéro doit contenir au moins 10 chiffres';
       }
-    }
-
-    // Validate postal code if provided
-    if (formData.postal_code && !formData.postal_code.match(/^\d{5}$/)) {
-      newErrors.postal_code = 'Le code postal doit contenir 5 chiffres';
     }
 
     setErrors(newErrors);
@@ -379,7 +366,7 @@ function ClientModal({ client, onClose, onSave }) {
               name="first_name" 
               value={formData.first_name} 
               onChange={handleChange} 
-              required 
+             
               error={errors.first_name}
             />
             <Input 
@@ -387,7 +374,7 @@ function ClientModal({ client, onClose, onSave }) {
               name="last_name" 
               value={formData.last_name} 
               onChange={handleChange} 
-              required 
+              
               error={errors.last_name}
             />
           </div>
@@ -399,7 +386,7 @@ function ClientModal({ client, onClose, onSave }) {
               type="email" 
               value={formData.email} 
               onChange={handleChange} 
-              required 
+             
               error={errors.email}
             />
             <Input 
