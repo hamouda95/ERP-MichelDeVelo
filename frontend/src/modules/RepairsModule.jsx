@@ -14,7 +14,7 @@
  * ============================================================================ 
  */
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, memo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   PlusIcon, WrenchScrewdriverIcon, ClockIcon, CheckCircleIcon,
@@ -1388,4 +1388,4 @@ const RepairsModule = () => {
   );
 };
 
-export default RepairsModule;
+export default memo(RepairsModule);

@@ -3,7 +3,7 @@
  * Hamburger fusionné avec la sidebar
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, memo } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store';
 import { 
@@ -23,7 +23,7 @@ import {
   UserCircleIcon
 } from '@heroicons/react/24/outline';
 
-export default function Layout({ children }) {
+export default memo(function Layout({ children }) {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuthStore();
@@ -346,4 +346,4 @@ export default function Layout({ children }) {
       </div>
     </div>
   );
-}
+});

@@ -28,7 +28,7 @@ import {
   PhoneIcon,
   BellIcon
 } from '@heroicons/react/24/outline';
-import { repairsAPI } from '../services/api';
+import { repairsAPI } from '../services/api_consolidated';
 import RepairPartsManager from '../components/RepairPartsManager';
 import toast from 'react-hot-toast';
 
@@ -210,6 +210,8 @@ const RepairTicket = () => {
     // Gérer le changement de photo
     const handlePhotoChange = async (photoNumber, file) => {
         try {
+            if (!file) return;
+            
             const formData = new FormData();
             formData.append(`photo_${photoNumber}`, file);
             
@@ -218,6 +220,7 @@ const RepairTicket = () => {
             loadRepair();
         } catch (error) {
             toast.error('Erreur lors de la mise à jour de la photo');
+            console.error('Photo upload error:', error);
         }
     };
 

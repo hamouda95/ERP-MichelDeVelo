@@ -214,11 +214,27 @@ export const clientsAPI = {
 // ===== ORDERS API =====
 export const ordersAPI = {
   // Basic CRUD
-  getAll: (params) => api.get('/orders/', { params }),
-  getById: (id) => api.get(`/orders/${id}/`),
-  create: (data) => api.post('/orders/', data),
-  update: (id, data) => api.patch(`/orders/${id}/`, data),
-  delete: (id) => api.delete(`/orders/${id}/`),
+  getAll: (params) => api.get('/repairs/repairs/', { params }),
+  getById: (id) => api.get(`/repairs/repairs/${id}/`),
+  create: (data) => {
+    // Handle FormData for file uploads
+    if (data instanceof FormData) {
+      return api.post('/repairs/repairs/', data, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+    }
+    return api.post('/repairs/repairs/', data);
+  },
+  update: (id, data) => {
+    // Handle FormData for file uploads
+    if (data instanceof FormData) {
+      return api.patch(`/repairs/repairs/${id}/`, data, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+    }
+    return api.patch(`/repairs/repairs/${id}/`, data);
+  },
+  delete: (id) => api.delete(`/repairs/repairs/${id}/`),
   
   // Order management
   updateStatus: (id, status) => api.post(`/orders/${id}/update_status/`, { status }),
@@ -249,10 +265,24 @@ export const repairsAPI = {
   // Basic CRUD
   getAll: (params) => api.get('/repairs/repairs/', { params }),
   getById: (id) => api.get(`/repairs/repairs/${id}/`),
-  create: (data) => api.post('/repairs/repairs/', data, {
-    headers: { 'Content-Type': 'multipart/form-data' }
-  }),
-  update: (id, data) => api.patch(`/repairs/repairs/${id}/`, data),
+  create: (data) => {
+    // Handle FormData for file uploads
+    if (data instanceof FormData) {
+      return api.post('/repairs/repairs/', data, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+    }
+    return api.post('/repairs/repairs/', data);
+  },
+  update: (id, data) => {
+    // Handle FormData for file uploads
+    if (data instanceof FormData) {
+      return api.patch(`/repairs/repairs/${id}/`, data, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+    }
+    return api.patch(`/repairs/repairs/${id}/`, data);
+  },
   delete: (id) => api.delete(`/repairs/repairs/${id}/`),
   
   // Kanban-specific methods - CORRIGÉ pour correspondre au modèle backend réel
@@ -318,8 +348,9 @@ export const repairsAPI = {
   getTimeline: (repairId) => api.get(`/repairs/repairs/${repairId}/timeline/`),
   addTimelineEntry: (repairId, timelineData) => api.post(`/repairs/repairs/${repairId}/add_timeline/`, timelineData),
   
-  // SMS management (DISABLED)
-  // sendSMS: (id) => api.post(`/repairs/repairs/${id}/send_sms/`),
+  // SMS management
+  sendSMS: (id, smsData) => api.post(`/repairs/repairs/${id}/send_sms/`, smsData),
+  sendNotification: (id, notificationData) => api.post(`/repairs/repairs/${id}/send_sms/`, notificationData),
   
   // Document management
   uploadDocument: (repairId, documentData) => {
@@ -342,6 +373,9 @@ export const repairsAPI = {
     responseType: 'blob' 
   }),
   printTicket: (id) => api.get(`/repairs/repairs/${id}/print/`, { 
+    responseType: 'blob' 
+  }),
+  printQuote: (id) => api.get(`/repairs/repairs/${id}/print_quote/`, { 
     responseType: 'blob' 
   }),
   
