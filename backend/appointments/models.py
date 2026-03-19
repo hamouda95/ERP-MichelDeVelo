@@ -61,7 +61,7 @@ class Appointment(models.Model):
     
     # Informations associées
     repair = models.ForeignKey('repairs.Repair', on_delete=models.SET_NULL, null=True, blank=True, related_name='appointments')
-    quote = models.ForeignKey('quotes.Quote', on_delete=models.SET_NULL, null=True, blank=True, related_name='appointments')
+    # quote = models.ForeignKey('quotes.Quote', on_delete=models.SET_NULL, null=True, blank=True, related_name='appointments')
     
     # Notes et suivi
     notes = models.TextField(blank=True, verbose_name="Notes internes")

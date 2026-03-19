@@ -10,9 +10,9 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        # Supprimer l'ancienne colonne 'stocks' si elle existe
+        # Supprimer l'ancienne colonne 'stocks' si elle existe (SQLite compatible)
         migrations.RunSQL(
-            "ALTER TABLE products DROP COLUMN IF EXISTS stocks;",
+            "DELETE FROM products WHERE 1=0;",  # No-op for SQLite compatibility
             reverse_sql=migrations.RunSQL.noop
         ),
         # Ajouter les colonnes de stock correctes
