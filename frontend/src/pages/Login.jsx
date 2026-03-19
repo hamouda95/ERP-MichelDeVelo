@@ -57,11 +57,11 @@ export default function Login() {
         {/* Logo */}
         <div className="flex items-center gap-2.5 relative z-10">
           <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-green-500 to-green-700 flex items-center justify-center flex-shrink-0">
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-              <circle cx="5" cy="14" r="3.5" stroke="white" strokeWidth="1.5" />
-              <circle cx="15" cy="14" r="3.5" stroke="white" strokeWidth="1.5" />
-              <path d="M5 14L10 6L13 10M10 6L13 4M10 10H15" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
+            <img 
+              src="https://osiuwhudhfsbcpcrukzc.supabase.co/storage/v1/object/sign/Media/michel%20logo.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV8wMGUwMDIzNy0xNDNjLTRhNjYtYWI5ZC0zNjhjYzdmNTUzMzEiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJNZWRpYS9taWNoZWwgbG9nby5wbmciLCJpYXQiOjE3NzM4OTQ5OTAsImV4cCI6MjQwNDYxNDk5MH0.y5AeMhEXqA8IUedHgVgdInas98jXbrMXjri69P6xW0E" 
+              alt="Logo Michel De Vélo" 
+              className="w-5 h-5 object-contain" 
+            />
           </div>
           <span className="text-[#f0f0ec] font-semibold text-[15px] tracking-tight">Michel De Vélo</span>
         </div>

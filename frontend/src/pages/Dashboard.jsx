@@ -36,9 +36,10 @@ export default function Dashboard() {
     totalProducts: 0,
     totalRepairs: 0,
     pendingQuotes: 0,
-    todayAppointments: 0,
+    todayAppointments: [],
     lowStockProducts: [],
     recentOrders: [],
+    recentPurchases: [],
     monthlyTrend: { current: 0, previous: 0, percentage: 0 },
     weeklyStats: { revenue: 0, orders: 0, newClients: 0, repairs: 0 },
     topProducts: [],
@@ -54,16 +55,22 @@ export default function Dashboard() {
       const [
         ordersData,
         clientsData,
-        financeData
+        financeData,
+        appointmentsData,
+        purchasesData
       ] = await Promise.allSettled([
         ordersAPI.getAll({ limit: 5, ordering: '-created_at' }),
         clientsAPI.getAll(),
-        financeAPI.getDashboard().catch(() => ({ data: {} }))
+        financeAPI.getDashboard().catch(() => ({ data: {} })),
+        appointmentsAPI.getAll({ date: new Date().toISOString().split('T')[0] }),
+        suppliersAPI.getPurchaseOrders({ limit: 5, ordering: '-created_at' })
       ]);
 
       const orders = ordersData.status === 'fulfilled' ? (ordersData.value.data?.results || ordersData.value.data || []) : [];
       const clients = clientsData.status === 'fulfilled' ? (clientsData.value.data?.results || clientsData.value.data || []) : [];
       const finance = financeData.status === 'fulfilled' ? financeData.value.data : {};
+      const appointments = appointmentsData.status === 'fulfilled' ? (appointmentsData.value.data?.results || appointmentsData.value.data || []) : [];
+      const purchases = purchasesData.status === 'fulfilled' ? (purchasesData.value.data?.results || purchasesData.value.data || []) : [];
 
       const completedOrders = orders.filter(order => order.status === 'completed');
       const totalRevenue = completedOrders.reduce((sum, order) => sum + (order.total_ttc || 0), 0);
@@ -74,6 +81,9 @@ export default function Dashboard() {
         totalRevenue: finance.total_revenue || totalRevenue,
         totalOrders: orders.length,
         totalClients: clients.length,
+        todayAppointments: appointments,
+        recentOrders: orders.slice(0, 3),
+        recentPurchases: purchases.slice(0, 3),
         totalProducts: prev.totalProducts, // Will be updated in phase 2
         totalRepairs: prev.totalRepairs, // Will be updated in phase 2
       }));
@@ -262,6 +272,107 @@ export default function Dashboard() {
             <p className="text-gray-600 text-sm font-medium">Réparations</p>
             <p className="text-3xl font-bold text-gray-900 mt-2">{stats.totalRepairs}</p>
           </div>
+        </div>
+      </div>
+
+      {/* Sections d'activité récente */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Rendez-vous d'aujourd'hui */}
+        <div className="bg-white rounded-xl shadow-lg p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <CalendarIcon className="w-5 h-5 text-blue-600" />
+            <h3 className="text-lg font-semibold text-gray-900">Rendez-vous d'aujourd'hui</h3>
+            <span className="ml-auto bg-blue-100 text-blue-800 text-xs font-medium px-2 py-1 rounded-full">
+              {stats.todayAppointments.length}
+            </span>
+          </div>
+          {stats.todayAppointments.length > 0 ? (
+            <div className="space-y-3">
+              {stats.todayAppointments.slice(0, 3).map((appointment, index) => (
+                <div key={index} className="border-l-4 border-blue-500 pl-4 py-2">
+                  <p className="font-medium text-gray-900">{appointment.client_name || 'Client'}</p>
+                  <p className="text-sm text-gray-600">{appointment.time || 'Heure non définie'}</p>
+                  <p className="text-xs text-gray-500">{appointment.service || 'Service non spécifié'}</p>
+                </div>
+              ))}
+              {stats.todayAppointments.length > 3 && (
+                <button
+                  onClick={() => navigate('/appointments')}
+                  className="text-blue-600 text-sm hover:text-blue-800 font-medium"
+                >
+                  Voir tous les rendez-vous →
+                </button>
+              )}
+            </div>
+          ) : (
+            <p className="text-gray-500 text-center py-4">Aucun rendez-vous aujourd'hui</p>
+          )}
+        </div>
+
+        {/* Dernières ventes */}
+        <div className="bg-white rounded-xl shadow-lg p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <ShoppingCartIcon className="w-5 h-5 text-green-600" />
+            <h3 className="text-lg font-semibold text-gray-900">Dernières ventes</h3>
+          </div>
+          {stats.recentOrders.length > 0 ? (
+            <div className="space-y-3">
+              {stats.recentOrders.map((order, index) => (
+                <div key={index} className="border-l-4 border-green-500 pl-4 py-2">
+                  <p className="font-medium text-gray-900">
+                    {order.client_name || `Commande #${order.id}`}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    {order.total_ttc ? `${order.total_ttc.toLocaleString('fr-FR')} €` : 'Montant non défini'}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    {new Date(order.created_at).toLocaleDateString('fr-FR')}
+                  </p>
+                </div>
+              ))}
+              <button
+                onClick={() => navigate('/orders')}
+                className="text-green-600 text-sm hover:text-green-800 font-medium"
+              >
+                Voir toutes les ventes →
+              </button>
+            </div>
+          ) : (
+            <p className="text-gray-500 text-center py-4">Aucune vente récente</p>
+          )}
+        </div>
+
+        {/* Derniers achats */}
+        <div className="bg-white rounded-xl shadow-lg p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <DocumentTextIcon className="w-5 h-5 text-purple-600" />
+            <h3 className="text-lg font-semibold text-gray-900">Derniers achats</h3>
+          </div>
+          {stats.recentPurchases.length > 0 ? (
+            <div className="space-y-3">
+              {stats.recentPurchases.map((purchase, index) => (
+                <div key={index} className="border-l-4 border-purple-500 pl-4 py-2">
+                  <p className="font-medium text-gray-900">
+                    {purchase.supplier_name || `Fournisseur #${purchase.id}`}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    {purchase.total_amount ? `${purchase.total_amount.toLocaleString('fr-FR')} €` : 'Montant non défini'}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    {new Date(purchase.created_at).toLocaleDateString('fr-FR')}
+                  </p>
+                </div>
+              ))}
+              <button
+                onClick={() => navigate('/suppliers')}
+                className="text-purple-600 text-sm hover:text-purple-800 font-medium"
+              >
+                Voir tous les achats →
+              </button>
+            </div>
+          ) : (
+            <p className="text-gray-500 text-center py-4">Aucun achat récent</p>
+          )}
         </div>
       </div>
 

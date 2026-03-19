@@ -1,5 +1,11 @@
 <svg width="144" height="144" viewBox="0 0 144 144" xmlns="http://www.w3.org/2000/svg">
-  <rect width="144" height="144" fill="#2563eb"/>
-  <text x="72" y="72" font-family="Arial, sans-serif" font-size="24" fill="white" text-anchor="middle" dominant-baseline="middle">ERP</text>
-  <text x="72" y="95" font-family="Arial, sans-serif" font-size="12" fill="white" text-anchor="middle" dominant-baseline="middle">Vélo</text>
+  <svg width="72" height="72" viewBox="0 0 72 72" x="36" y="36">
+    <defs>
+      <clipPath id="logo-clip">
+        <rect width="72" height="72" rx="12"/>
+      </clipPath>
+    </defs>
+    <rect width="72" height="72" rx="12" fill="#10b981"/>
+    <image href="https://osiuwhudhfsbcpcrukzc.supabase.co/storage/v1/object/sign/Media/michel%20logo.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV8wMGUwMDIzNy0xNDNjLTRhNjYtYWI5ZC0zNjhjYzdmNTUzMzEiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJNZWRpYS9taWNoZWwgbG9nby5wbmciLCJpYXQiOjE3NzM4OTQ5OTAsImV4cCI6MjQwNDYxNDk5MH0.y5AeMhEXqA8IUedHgVgdInas98jXbrMXjri69P6xW0E" width="56" height="56" x="8" y="8" clip-path="url(#logo-clip)"/>
+  </svg>
 </svg>

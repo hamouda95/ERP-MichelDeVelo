@@ -48,7 +48,7 @@ const RepairPartsManager = ({ repair, onClose, onUpdate }) => {
     useEffect(() => {
         if (repair?.id) {
             // Utiliser les pièces déjà chargées depuis la réparation
-            if (repair.items && repair.items.length > 0) {
+            if (repair.items && Array.isArray(repair.items) && repair.items.length > 0) {
                 setParts(repair.items);
             } else {
                 // Essayer de charger via l'API si aucune pièce n'est incluse
@@ -61,9 +61,11 @@ const RepairPartsManager = ({ repair, onClose, onUpdate }) => {
     const loadParts = async () => {
         try {
             const response = await repairsAPI.getItems(repair.id);
-            setParts(response.data || []);
+            const partsData = response.data || [];
+            setParts(Array.isArray(partsData) ? partsData : []);
         } catch (error) {
             console.error('Erreur lors du chargement des pièces:', error);
+            setParts([]); // S'assurer que parts est toujours un tableau en cas d'erreur
             // Ne pas afficher d'erreur si les pièces sont déjà dans la réparation
             if (!repair.items || repair.items.length === 0) {
                 toast.error('Erreur lors du chargement des pièces');
@@ -156,9 +158,9 @@ const RepairPartsManager = ({ repair, onClose, onUpdate }) => {
             return { partsCost: 0, laborCost: 0, serviceCost: 0, totalCost: 0 };
         }
         
-        const partsCost = parts.filter(p => p.item_type === 'part').reduce((sum, part) => sum + (parseFloat(part.total_price) || 0), 0);
-        const laborCost = parts.filter(p => p.item_type === 'labor').reduce((sum, part) => sum + (parseFloat(part.total_price) || 0), 0);
-        const serviceCost = parts.filter(p => p.item_type === 'service').reduce((sum, part) => sum + (parseFloat(part.total_price) || 0), 0);
+        const partsCost = (parts || []).filter(p => p.item_type === 'part').reduce((sum, part) => sum + (parseFloat(part.total_price) || 0), 0);
+        const laborCost = (parts || []).filter(p => p.item_type === 'labor').reduce((sum, part) => sum + (parseFloat(part.total_price) || 0), 0);
+        const serviceCost = (parts || []).filter(p => p.item_type === 'service').reduce((sum, part) => sum + (parseFloat(part.total_price) || 0), 0);
         const totalCost = partsCost + laborCost + serviceCost;
         
         return { partsCost, laborCost, serviceCost, totalCost };
@@ -248,14 +250,14 @@ const RepairPartsManager = ({ repair, onClose, onUpdate }) => {
                             </button>
                         </div>
 
-                        {parts.length === 0 ? (
+                        {(parts || []).length === 0 ? (
                             <div className="text-center py-8">
                                 <CubeIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                                 <p className="text-gray-500">Aucune pièce ou intervention ajoutée</p>
                             </div>
                         ) : (
                             <div className="space-y-3">
-                                {parts.map((part) => (
+                                {(parts || []).map((part) => (
                                     <div key={part.id} className="bg-white border border-gray-200 rounded-lg p-4">
                                         <div className="flex justify-between items-start">
                                             <div className="flex-1">

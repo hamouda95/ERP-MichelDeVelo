@@ -87,8 +87,8 @@ export default function Layout({ children }) {
               <div className="flex items-center gap-3">
                 <div className="inline-flex items-center justify-center w-12 h-12 rounded-full">
                   <img 
-                    src="https://static.wixstatic.com/media/985974_816db9a0e3d348da86b214669dbf3d64~mv2.png/v1/fit/w_2500,h_1330,al_c/985974_816db9a0e3d348da86b214669dbf3d64~mv2.png" 
-                    alt="Logo" 
+                    src="https://osiuwhudhfsbcpcrukzc.supabase.co/storage/v1/object/sign/Media/michel%20logo.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV8wMGUwMDIzNy0xNDNjLTRhNjYtYWI5ZC0zNjhjYzdmNTUzMzEiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJNZWRpYS9taWNoZWwgbG9nby5wbmciLCJpYXQiOjE3NzM4OTQ5OTAsImV4cCI6MjQwNDYxNDk5MH0.y5AeMhEXqA8IUedHgVgdInas98jXbrMXjri69P6xW0E" 
+                    alt="Logo Michel De Vélo" 
                     className="w-10 h-10 object-contain rounded-full" 
                   />
                 </div>
