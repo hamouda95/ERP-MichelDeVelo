@@ -381,23 +381,23 @@ const RepairsModule = () => {
       const statusTitle = destinationColumn.title;
       toast.success(`Statut mis à jour: ${statusTitle}`);
       
-      // Envoyer SMS automatiquement si passage à "completed" (solution hybride)
-      if (newStatus === 'completed') {
-        try {
-          await repairsAPI.sendSMS(repairId);
-          toast.success('SMS envoyé automatiquement au client');
-        } catch (smsErr) {
-          console.error('Error sending SMS:', smsErr);
-          // Solution alternative : notification email
-          if (smsErr.response?.status === 500) {
-            toast('Statut mis à jour. SMS en cours de configuration (configurez Gmail dans .env)');
-          } else if (smsErr.response?.status === 400) {
-            toast.error('Statut mis à jour, mais le client n\'a pas de numéro de téléphone');
-          } else {
-            toast.error('Statut mis à jour, mais erreur lors de l\'envoi du SMS');
-          }
-        }
-      }
+      // SMS sending disabled
+      // if (newStatus === 'completed') {
+      //   try {
+      //     await repairsAPI.sendSMS(repairId);
+      //     toast.success('SMS envoyé automatiquement au client');
+      //   } catch (smsErr) {
+      //     console.error('Error sending SMS:', smsErr);
+      //     // Solution alternative : notification email
+      //     if (smsErr.response?.status === 500) {
+      //       toast('Statut mis à jour. SMS en cours de configuration (configurez Gmail dans .env)');
+      //     } else if (smsErr.response?.status === 400) {
+      //       toast.error('Statut mis à jour, mais le client n\'a pas de numéro de téléphone');
+      //     } else {
+      //       toast.error('Statut mis à jour, mais erreur lors de l\'envoi du SMS');
+      //     }
+      //   }
+      // }
       
       await loadRepairs();
       
@@ -570,17 +570,17 @@ const RepairsModule = () => {
     }
   };
 
-  // 7. Envoi de SMS au client
-  const handleSendSMS = async (repairId) => {
-    try {
-      await repairsAPI.sendSMS(repairId);
-      toast.success('SMS envoyé avec succès');
-      loadRepairs();
-    } catch (err) {
-      console.error('Error sending SMS:', err);
-      toast.error('Erreur lors de l\'envoi du SMS');
-    }
-  };
+  // 7. Envoi de SMS au client (FONCTIONNALITÉ DÉSACTIVÉE)
+  // const handleSendSMS = async (repairId) => {
+  //   try {
+  //     await repairsAPI.sendSMS(repairId);
+  //     toast.success('SMS envoyé avec succès');
+  //     loadRepairs();
+  //   } catch (err) {
+  //     console.error('Error sending SMS:', err);
+  //     toast.error('Erreur lors de l\'envoi du SMS');
+  //   }
+  // };
   // 5. Gestion des pièces
   const handleAddPart = (part) => {
     setSelectedParts([...selectedParts, part]);
@@ -1016,7 +1016,8 @@ const RepairsModule = () => {
                     Gérer les pièces
                   </button>
 
-                  <button
+                  {/* SMS button removed */}
+                  {/* <button
                     onClick={() => {
                       handleSendSMS(selectedRepair.id);
                     }}
@@ -1024,7 +1025,7 @@ const RepairsModule = () => {
                   >
                     <BellIcon className="w-4 h-4 mr-2" />
                     Envoyer SMS
-                  </button>
+                  </button> */}
 
                   <button
                     onClick={() => {

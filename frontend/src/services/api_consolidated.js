@@ -318,8 +318,8 @@ export const repairsAPI = {
   getTimeline: (repairId) => api.get(`/repairs/repairs/${repairId}/timeline/`),
   addTimelineEntry: (repairId, timelineData) => api.post(`/repairs/repairs/${repairId}/add_timeline/`, timelineData),
   
-  // SMS management
-  sendSMS: (id) => api.post(`/repairs/repairs/${id}/send_sms/`),
+  // SMS management (DISABLED)
+  // sendSMS: (id) => api.post(`/repairs/repairs/${id}/send_sms/`),
   
   // Document management
   uploadDocument: (repairId, documentData) => {
