@@ -16,15 +16,28 @@ export default function Login() {
     e.preventDefault();
     setLoading(true);
     try {
-      const response = await authAPI.login({ username: email, password });
-      const { access } = response.data;
-      login({ username: email }, access);
-      const userResponse = await authAPI.getCurrentUser();
-      login(userResponse.data, access);
+      // Utiliser l'email comme identifiant (accepté par notre endpoint custom)
+      const response = await authAPI.login({ email, password });
+      const { access, user } = response.data;
+      
+      // Login avec les données utilisateur
+      login(user, access);
+      
       toast.success('Connexion réussie !');
       navigate('/dashboard');
-    } catch {
-      toast.error("Identifiant ou mot de passe incorrect");
+    } catch (error) {
+      console.error('Login error:', error);
+      let errorMessage = "Identifiant ou mot de passe incorrect";
+      
+      if (error.response?.status === 401) {
+        errorMessage = "Identifiant ou mot de passe incorrect";
+      } else if (error.response?.status === 500) {
+        errorMessage = "Erreur serveur, veuillez réessayer";
+      } else if (error.code === 'NETWORK_ERROR') {
+        errorMessage = "Erreur de connexion, vérifiez votre internet";
+      }
+      
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -119,7 +132,7 @@ export default function Login() {
                   type="text"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="username ou email"
+                  placeholder="email ou nom d'utilisateur"
                   required
                   className="w-full px-3.5 py-3 pr-10 bg-white border border-[#e0dfd6] rounded-[10px] text-[#0d1117] text-sm placeholder-[#c0bfb6] outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/10 transition-all"
                 />

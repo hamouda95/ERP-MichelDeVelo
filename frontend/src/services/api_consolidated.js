@@ -121,31 +121,34 @@ api.interceptors.response.use(
 
 // ===== AUTHENTICATION API =====
 export const authAPI = {
-  // Basic auth
-  login: (credentials) => api.post('/token/', credentials),
-  register: (userData) => api.post('/auth/register/', userData),
-  getCurrentUser: () => api.get('/auth/me/'),
-  refreshToken: (refresh) => api.post('/token/refresh/', { refresh }),
+  // Custom auth (accepte email ou username)
+  login: (credentials) => api.post('/api/auth/token/', credentials),
+  register: (userData) => api.post('/api/auth/register/', userData),
+  getCurrentUser: () => api.get('/api/auth/me/'),
+  refreshToken: (refresh) => api.post('/api/token/refresh/', { refresh }),
+  
+  // Standard JWT (backup)
+  loginStandard: (credentials) => api.post('/api/auth/login/', credentials),
   
   // Password management
-  requestPasswordReset: (email) => api.post('/auth/password-reset/', { email }),
-  confirmPasswordReset: (data) => api.post('/auth/password-reset-confirm/', data),
-  changePassword: (data) => api.post('/auth/change-password/', data),
+  requestPasswordReset: (email) => api.post('/api/auth/password-reset/', { email }),
+  confirmPasswordReset: (data) => api.post('/api/auth/password-reset-confirm/', data),
+  changePassword: (data) => api.post('/api/auth/change-password/', data),
   
   // User management
-  getAllUsers: (params) => api.get('/auth/users/', { params }),
-  getUserById: (id) => api.get(`/auth/users/${id}/`),
-  createUser: (data) => api.post('/auth/users/', data),
-  updateUser: (id, data) => api.patch(`/auth/users/${id}/`, data),
-  deleteUser: (id) => api.delete(`/auth/users/${id}/`),
-  updateUserPermissions: (userId, permissions) => api.post(`/auth/users/${userId}/permissions/`, permissions),
+  getAllUsers: (params) => api.get('/api/auth/users/', { params }),
+  getUserById: (id) => api.get(`/api/auth/users/${id}/`),
+  createUser: (data) => api.post('/api/auth/users/', data),
+  updateUser: (id, data) => api.patch(`/api/auth/users/${id}/`, data),
+  deleteUser: (id) => api.delete(`/api/auth/users/${id}/`),
+  updateUserPermissions: (userId, permissions) => api.post(`/api/auth/users/${userId}/permissions/`, permissions),
   
   // Profile management
-  updateProfile: (data) => api.patch('/auth/profile/', data),
+  updateProfile: (data) => api.patch('/api/auth/profile/', data),
   uploadAvatar: (file) => {
     const formData = new FormData();
     formData.append('avatar', file);
-    return api.post('/auth/upload-avatar/', formData, {
+    return api.post('/api/auth/upload-avatar/', formData, {
       headers: { 'Content-Type': 'multipart/form-data' }
     });
   }
