@@ -9,6 +9,9 @@ from django.conf import settings
 from django.contrib.auth.tokens import default_token_generator
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes, force_str
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import filters
+from utils.permissions import require_permission, get_user_permissions
 from .serializers import UserSerializer, RegisterSerializer, PasswordResetRequestSerializer, PasswordResetConfirmSerializer
 
 User = get_user_model()
@@ -79,5 +82,112 @@ def password_reset_confirm(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_current_user(request):
+    """Récupérer l'utilisateur connecté avec ses permissions"""
     serializer = UserSerializer(request.user)
-    return Response(serializer.data)
+    user_data = serializer.data
+    user_data['permissions'] = get_user_permissions(request.user)
+    return Response(user_data)
+
+
+class UserListView(generics.ListCreateAPIView):
+    """Liste et création des utilisateurs (nécessite permission)"""
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    filterset_fields = ['role', 'store_access']
+    search_fields = ['first_name', 'last_name', 'email']
+    
+    def get_queryset(self):
+        user = self.request.user
+        if not user.can_manage_users:
+            return User.objects.filter(id=user.id)
+        return User.objects.all()
+    
+    def perform_create(self, serializer):
+        # Seul un admin peut créer des utilisateurs avec permissions avancées
+        user = self.request.user
+        if not user.can_manage_users:
+            serializer.save(
+                store_access=user.store_access,
+                can_manage_users=False,
+                can_view_all_stores=False,
+                can_manage_products=False,
+                can_manage_clients=False,
+                can_view_analytics=False
+            )
+        else:
+            serializer.save()
+
+
+class UserDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """Détail et mise à jour d'un utilisateur"""
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def get_queryset(self):
+        user = self.request.user
+        if user.can_manage_users:
+            return User.objects.all()
+        return User.objects.filter(id=user.id)
+    
+    def perform_update(self, serializer):
+        user = self.request.user
+        current_user = self.get_object()
+        
+        # Si l'utilisateur n'est pas admin, limiter les champs modifiables
+        if not user.can_manage_users and current_user.id != user.id:
+            return
+        
+        # Seul un admin peut modifier les permissions
+        if not user.can_manage_users:
+            allowed_fields = ['first_name', 'last_name', 'phone', 'avatar']
+            data = {k: v for k, v in serializer.validated_data.items() if k in allowed_fields}
+            serializer.save(**data)
+        else:
+            serializer.save()
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def update_user_permissions(request, user_id):
+    """Mettre à jour les permissions d'un utilisateur"""
+    # Vérifier manuellement la permission
+    if not request.user.can_manage_users:
+        return Response(
+            {'error': 'Permission refusée', 'message': 'Vous n\'avez pas la permission de gérer les utilisateurs'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+    
+    try:
+        user = User.objects.get(id=user_id)
+        
+        # Mettre à jour les permissions
+        permissions = [
+            'can_manage_users',
+            'can_view_all_stores', 
+            'can_manage_products',
+            'can_manage_clients',
+            'can_view_analytics'
+        ]
+        
+        for perm in permissions:
+            if perm in request.data:
+                setattr(user, perm, request.data[perm])
+        
+        if 'store_access' in request.data:
+            user.store_access = request.data['store_access']
+        
+        user.save()
+        
+        return Response({
+            'message': 'Permissions mises à jour avec succès',
+            'permissions': get_user_permissions(user)
+        })
+        
+    except User.DoesNotExist:
+        return Response(
+            {'error': 'Utilisateur non trouvé'},
+            status=status.HTTP_404_NOT_FOUND
+        )

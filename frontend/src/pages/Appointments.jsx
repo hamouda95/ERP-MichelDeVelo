@@ -5,524 +5,461 @@ import {
   UserIcon,
   PhoneIcon,
   EnvelopeIcon,
+  ArrowPathIcon,
+  CloudArrowDownIcon,
+  CheckCircleIcon,
+  ExclamationTriangleIcon,
+  FunnelIcon,
+  XMarkIcon,
 } from '@heroicons/react/24/outline';
+import { toast } from 'react-hot-toast';
+
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api';
 
 export default function Appointments() {
   const [appointments, setAppointments] = useState([]);
-  const [loading, setLoading] = useState(false);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedAppointment, setSelectedAppointment] = useState(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [syncStatus, setSyncStatus] = useState(null);
+  const [filter, setFilter] = useState({
+    source: 'all', // all, local, wix
+    status: 'all',
+    date: 'all'
+  });
 
-  // Configuration Wix - à personnaliser
-  const WIX_API_KEY = 'VOTRE_CLE_API_WIX';
-  const WIX_SITE_ID = 'VOTRE_SITE_ID';
-  const WIX_ACCOUNT_ID = 'VOTRE_ACCOUNT_ID';
-
-  // Charger les rendez-vous depuis l'API Wix (désactivé par défaut)
-  const fetchWixAppointments = async () => {
-    setLoading(true);
+  // Charger les rendez-vous depuis notre API
+  const fetchAppointments = async () => {
     try {
-      const response = await fetch(
-        'https://www.wixapis.com/bookings/v2/schedules/sessions',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: WIX_API_KEY,
-            'wix-site-id': WIX_SITE_ID,
-            'wix-account-id': WIX_ACCOUNT_ID,
-          },
-          body: JSON.stringify({
-            query: {
-              filter: {
-                startDate: {
-                  $gte: new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).toISOString(),
-                },
-                endDate: {
-                  $lte: new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).toISOString(),
-                },
-              },
-            },
-            paging: { limit: 100 },
-          }),
-        }
-      );
+      setLoading(true);
+      const token = localStorage.getItem('access_token');
+      
+      const params = new URLSearchParams();
+      if (filter.source !== 'all') params.append('source', filter.source);
+      if (filter.status !== 'all') params.append('status', filter.status);
+      
+      const response = await fetch(`${API_BASE_URL}/appointments/?${params}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
 
       if (response.ok) {
         const data = await response.json();
-        const formattedAppointments =
-          data.sessions?.map((session) => ({
-            id: session.id,
-            title: session.title || 'Rendez-vous',
-            clientName: session.participants?.[0]?.name || 'Client',
-            clientEmail: session.participants?.[0]?.email || '',
-            clientPhone: session.participants?.[0]?.phone || '',
-            startTime: new Date(session.start),
-            endTime: new Date(session.end),
-            status: session.status,
-            location: session.location?.name || '',
-            notes: session.notes || '',
-            serviceName: session.scheduleId || 'Service',
-          })) || [];
-
-        setAppointments(formattedAppointments);
+        setAppointments(data);
       } else {
-        throw new Error('Erreur de récupération API Wix');
+        throw new Error('Erreur lors du chargement des rendez-vous');
       }
     } catch (error) {
       console.error('Erreur lors de la récupération des rendez-vous :', error);
-      loadDemoAppointments();
+      toast.error('Impossible de charger les rendez-vous');
     } finally {
       setLoading(false);
     }
   };
 
-  // Données de démonstration
-  const loadDemoAppointments = () => {
-    const now = new Date();
-    const demoData = [
-      {
-        id: '1',
-        title: 'Réparation Vélo',
-        clientName: 'Jean Dupont',
-        clientEmail: 'jean.dupont@email.com',
-        clientPhone: '06 12 34 56 78',
-        startTime: new Date(now.getFullYear(), now.getMonth(), 5, 10, 0),
-        endTime: new Date(now.getFullYear(), now.getMonth(), 5, 11, 0),
-        status: 'CONFIRMED',
-        location: 'Atelier principal',
-        notes: 'Réparation dérailleur arrière',
-        serviceName: 'Réparation standard',
-      },
-      {
-        id: '2',
-        title: 'Entretien Complet',
-        clientName: 'Marie Martin',
-        clientEmail: 'marie.martin@email.com',
-        clientPhone: '06 98 76 54 32',
-        startTime: new Date(now.getFullYear(), now.getMonth(), 7, 14, 0),
-        endTime: new Date(now.getFullYear(), now.getMonth(), 7, 16, 0),
-        status: 'CONFIRMED',
-        location: 'Atelier principal',
-        notes: 'Révision complète + nettoyage',
-        serviceName: 'Entretien complet',
-      },
-      {
-        id: '3',
-        title: 'Essai Vélo',
-        clientName: 'Pierre Dubois',
-        clientEmail: 'pierre.dubois@email.com',
-        clientPhone: '07 11 22 33 44',
-        startTime: new Date(now.getFullYear(), now.getMonth(), 10, 15, 30),
-        endTime: new Date(now.getFullYear(), now.getMonth(), 10, 16, 30),
-        status: 'PENDING',
-        location: 'Magasin',
-        notes: 'Essai vélo électrique',
-        serviceName: 'Essai gratuit',
-      },
-    ];
-    setAppointments(demoData);
+  // Synchroniser avec Wix
+  const syncWithWix = async () => {
+    try {
+      setSyncing(true);
+      const token = localStorage.getItem('access_token');
+      
+      const response = await fetch(`${API_BASE_URL}/appointments/sync-wix/`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const result = await response.json();
+      
+      if (response.ok) {
+        toast.success(`Synchronisation réussie : ${result.created} créés, ${result.updated} mis à jour`);
+        await fetchAppointments(); // Recharger les données
+        await fetchSyncStatus(); // Mettre à jour le statut
+      } else {
+        throw new Error(result.error || 'Erreur lors de la synchronisation');
+      }
+    } catch (error) {
+      console.error('Erreur lors de la synchronisation Wix :', error);
+      toast.error(error.message || 'Échec de la synchronisation Wix');
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  // Récupérer le statut de la dernière synchronisation
+  const fetchSyncStatus = async () => {
+    try {
+      const token = localStorage.getItem('access_token');
+      
+      const response = await fetch(`${API_BASE_URL}/appointments/sync-status/`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setSyncStatus(data.last_sync);
+      }
+    } catch (error) {
+      console.error('Erreur lors de la récupération du statut de sync :', error);
+    }
   };
 
   useEffect(() => {
-    // Charger les données de démonstration au démarrage
-    loadDemoAppointments();
-    // fetchWixAppointments(); // Décommente quand l’API est prête
-  }, [currentDate]);
+    fetchAppointments();
+    fetchSyncStatus();
+  }, [filter]);
 
-  // --- Fonctions utilitaires ---
-  const getDaysInMonth = () => {
-    const year = currentDate.getFullYear();
-    const month = currentDate.getMonth();
-    const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
-    const daysInMonth = lastDay.getDate();
-    const startingDayOfWeek = (firstDay.getDay() + 6) % 7; // Lundi = 0
-
-    const days = [];
-
-    // Jours du mois précédent
-    const prevMonth = new Date(year, month, 0);
-    const daysInPrevMonth = prevMonth.getDate();
-    for (let i = startingDayOfWeek - 1; i >= 0; i--) {
-      days.push({
-        date: new Date(year, month - 1, daysInPrevMonth - i),
-        isCurrentMonth: false,
-      });
-    }
-
-    // Jours du mois actuel
-    for (let i = 1; i <= daysInMonth; i++) {
-      days.push({
-        date: new Date(year, month, i),
-        isCurrentMonth: true,
-      });
-    }
-
-    // Jours du mois suivant
-    const remainingDays = 42 - days.length; // 6 semaines
-    for (let i = 1; i <= remainingDays; i++) {
-      days.push({
-        date: new Date(year, month + 1, i),
-        isCurrentMonth: false,
-      });
-    }
-
-    return days;
-  };
-
-  const getAppointmentsForDay = (date) =>
-    appointments.filter((apt) => {
-      const aptDate = apt.startTime;
-      return (
-        aptDate.getDate() === date.getDate() &&
-        aptDate.getMonth() === date.getMonth() &&
-        aptDate.getFullYear() === date.getFullYear()
-      );
-    });
-
-  const previousMonth = () =>
-    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
-
-  const nextMonth = () =>
-    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
-
-  const goToToday = () => setCurrentDate(new Date());
-
-  const formatDate = (date) =>
-    date.toLocaleDateString('fr-FR', {
+  // Formater la date
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('fr-FR', {
       weekday: 'long',
       year: 'numeric',
       month: 'long',
       day: 'numeric',
     });
+  };
 
-  const formatTime = (date) =>
-    date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  // Formater l'heure
+  const formatTime = (timeString) => {
+    if (!timeString) return '';
+    const [hours, minutes] = timeString.split(':');
+    return `${hours}:${minutes}`;
+  };
 
+  // Obtenir la couleur du statut
   const getStatusColor = (status) => {
-    switch (status) {
-      case 'CONFIRMED':
-        return 'bg-green-100 text-green-800 border-green-300';
-      case 'PENDING':
-        return 'bg-yellow-100 text-yellow-800 border-yellow-300';
-      case 'CANCELLED':
-        return 'bg-red-100 text-red-800 border-red-300';
-      default:
-        return 'bg-gray-100 text-gray-800 border-gray-300';
-    }
+    const colors = {
+      'scheduled': 'bg-blue-100 text-blue-800',
+      'confirmed': 'bg-green-100 text-green-800',
+      'in_progress': 'bg-yellow-100 text-yellow-800',
+      'completed': 'bg-gray-100 text-gray-800',
+      'cancelled': 'bg-red-100 text-red-800',
+      'no_show': 'bg-red-100 text-red-800',
+    };
+    return colors[status] || 'bg-gray-100 text-gray-800';
   };
 
+  // Obtenir le libellé du statut
   const getStatusLabel = (status) => {
-    switch (status) {
-      case 'CONFIRMED':
-        return 'Confirmé';
-      case 'PENDING':
-        return 'En attente';
-      case 'CANCELLED':
-        return 'Annulé';
-      default:
-        return status;
-    }
+    const labels = {
+      'scheduled': 'Planifié',
+      'confirmed': 'Confirmé',
+      'in_progress': 'En cours',
+      'completed': 'Terminé',
+      'cancelled': 'Annulé',
+      'no_show': 'Absent',
+    };
+    return labels[status] || status;
   };
 
-  const days = getDaysInMonth();
-  const monthName = currentDate.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+  // Obtenir le libellé du type
+  const getTypeLabel = (type) => {
+    const labels = {
+      'repair': 'Réparation',
+      'maintenance': 'Entretien',
+      'customization': 'Personnalisation',
+      'delivery': 'Livraison',
+      'consultation': 'Consultation',
+    };
+    return labels[type] || type;
+  };
 
-  // --- Rendu principal ---
   return (
-    <>
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
-        <div className="p-6 max-w-7xl mx-auto">
-          {/* Titre */}
-          <div className="mb-8 flex items-center gap-4">
-            <div className="p-3 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl shadow-lg">
-              <CalendarIcon className="h-8 w-8 text-white" />
-            </div>
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <div className="bg-white shadow-sm border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center py-6">
             <div>
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                Calendrier
-              </h1>
-              <p className="text-gray-600 mt-1">Gérez vos rendez-vous en un coup d'œil</p>
+              <h1 className="text-3xl font-bold text-gray-900">Rendez-vous</h1>
+              <p className="mt-1 text-sm text-gray-500">
+                Gérez vos rendez-vous et synchronisez avec Wix Bookings
+              </p>
             </div>
-          </div>
-
-          {/* Barre outils */}
-          {/* Barre outils */}
-<div className="bg-white rounded-2xl shadow-lg p-4 mb-6 border border-gray-100 flex flex-wrap items-center justify-between gap-4">
-  <div className="flex items-center gap-3">
-    <button onClick={previousMonth} className="p-2 hover:bg-gray-100 rounded-xl">
-      <svg className="h-6 w-6 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-      </svg>
-    </button>
-
-    {/* Sélecteurs mois et année */}
-    <div className="flex items-center gap-2">
-        <select
-            value={currentDate.getMonth()}
-            onChange={(e) => {
-            const newMonth = parseInt(e.target.value);
-            setCurrentDate(new Date(currentDate.getFullYear(), newMonth, 1));
-            }}
-            className="border border-gray-300 rounded-lg px-3 py-2 text-gray-800 font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-        >
-            {[
-            'Janvier',
-            'Février',
-            'Mars',
-            'Avril',
-            'Mai',
-            'Juin',
-            'Juillet',
-            'Août',
-            'Septembre',
-            'Octobre',
-            'Novembre',
-            'Décembre',
-            ].map((m, i) => (
-            <option key={i} value={i}>
-                {m}
-            </option>
-            ))}
-        </select>
-
-        <select
-            value={currentDate.getFullYear()}
-            onChange={(e) => {
-            const newYear = parseInt(e.target.value);
-            setCurrentDate(new Date(newYear, currentDate.getMonth(), 1));
-            }}
-            className="border border-gray-300 rounded-lg px-3 py-2 text-gray-800 font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-        >
-            {Array.from({ length: 7 }, (_, i) => currentDate.getFullYear() - 3 + i).map((year) => (
-            <option key={year} value={year}>
-                {year}
-            </option>
-            ))}
-        </select>
-        </div>
-
-        <button onClick={nextMonth} className="p-2 hover:bg-gray-100 rounded-xl">
-        <svg className="h-6 w-6 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-        </svg>
-        </button>
-
-        <button
-        onClick={goToToday}
-        className="ml-2 px-6 py-2.5 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:shadow-lg transition-all font-medium"
-        >
-        Aujourd'hui
-        </button>
-    </div>
-
-    <button
-        onClick={loadDemoAppointments}
-        className="px-4 py-2.5 border-2 border-gray-200 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all flex items-center gap-2 font-medium"
-    >
-        Rafraîchir
-    </button>
-    </div>
-
-
-          {/* Calendrier */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2">
-              <div className="bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-100">
-                <div className="grid grid-cols-7 bg-gradient-to-r from-blue-600 to-purple-600 text-white text-sm font-bold">
-                  {['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'].map((d) => (
-                    <div key={d} className="p-4 text-center">
-                      {d}
-                    </div>
-                  ))}
-                </div>
-                <div className="grid grid-cols-7 divide-x divide-y divide-gray-100">
-                  {days.map((day, idx) => {
-                    const dayAppointments = getAppointmentsForDay(day.date);
-                    const isToday = day.date.toDateString() === new Date().toDateString();
-                    return (
-                      <div
-                        key={idx}
-                        className={`min-h-[110px] p-2 ${
-                          !day.isCurrentMonth ? 'bg-gray-50/50' : 'bg-white'
-                        } hover:bg-blue-50/30 transition-all cursor-pointer`}
-                      >
-                        <div className="flex items-center justify-center mb-2">
-                          {isToday ? (
-                            <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 text-white rounded-full flex items-center justify-center font-bold text-sm shadow-lg">
-                              {day.date.getDate()}
-                            </div>
-                          ) : (
-                            <span
-                              className={`text-sm font-semibold ${
-                                !day.isCurrentMonth ? 'text-gray-400' : 'text-gray-700'
-                              }`}
-                            >
-                              {day.date.getDate()}
-                            </span>
-                          )}
-                        </div>
-
-                        {dayAppointments.slice(0, 2).map((apt) => (
-                          <div
-                            key={apt.id}
-                            onClick={() => {
-                              setSelectedAppointment(apt);
-                              setShowDetailModal(true);
-                            }}
-                            className={`text-xs p-1.5 rounded-lg ${getStatusColor(
-                              apt.status
-                            )} hover:shadow-md hover:scale-105 transition-all font-medium`}
-                          >
-                            <div className="font-bold truncate">{formatTime(apt.startTime)}</div>
-                            <div className="truncate opacity-90">{apt.clientName}</div>
-                          </div>
-                        ))}
-
-                        {dayAppointments.length > 2 && (
-                          <div className="text-xs text-gray-500 text-center font-medium bg-gray-100 rounded py-0.5">
-                            +{dayAppointments.length - 2}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-
-            {/* Prochains rendez-vous */}
-            <div className="lg:col-span-1">
-              <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="p-2 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg">
-                    <ClockIcon className="h-5 w-5 text-white" />
-                  </div>
-                  <h2 className="text-xl font-bold text-gray-900">À venir</h2>
-                </div>
-                <div className="space-y-3 max-h-[calc(100vh-280px)] overflow-y-auto pr-2">
-                  {appointments
-                    .filter((apt) => apt.startTime >= new Date())
-                    .sort((a, b) => a.startTime - b.startTime)
-                    .slice(0, 10)
-                    .map((apt) => (
-                      <div
-                        key={apt.id}
-                        onClick={() => {
-                          setSelectedAppointment(apt);
-                          setShowDetailModal(true);
-                        }}
-                        className="p-4 border-2 border-gray-100 rounded-xl hover:border-blue-400 hover:shadow-lg transition-all cursor-pointer"
-                      >
-                        <div
-                          className={`px-3 py-1 rounded-full text-xs font-bold ${getStatusColor(
-                            apt.status
-                          )} shadow-sm mb-2`}
-                        >
-                          {getStatusLabel(apt.status)}
-                        </div>
-                        <div className="font-bold text-gray-900">{apt.clientName}</div>
-                        <div className="text-sm text-gray-600">
-                          {formatTime(apt.startTime)} - {formatTime(apt.endTime)}
-                        </div>
-                      </div>
-                    ))}
-                  {appointments.filter((apt) => apt.startTime >= new Date()).length === 0 && (
-                    <div className="text-center text-gray-400 py-12">
-                      <CalendarIcon className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                      <p className="font-medium">Aucun rendez-vous à venir</p>
-                    </div>
+            
+            <div className="flex items-center space-x-4">
+              {/* Statut de synchronisation */}
+              {syncStatus && (
+                <div className="flex items-center space-x-2 text-sm">
+                  {syncStatus.status === 'success' ? (
+                    <CheckCircleIcon className="h-5 w-5 text-green-500" />
+                  ) : (
+                    <ExclamationTriangleIcon className="h-5 w-5 text-yellow-500" />
                   )}
+                  <span className="text-gray-600">
+                    Dernière sync: {new Date(syncStatus.date).toLocaleString('fr-FR')}
+                  </span>
                 </div>
-              </div>
+              )}
+              
+              {/* Bouton de synchronisation */}
+              <button
+                onClick={syncWithWix}
+                disabled={syncing}
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {syncing ? (
+                  <>
+                    <ArrowPathIcon className="animate-spin -ml-1 mr-2 h-4 w-4" />
+                    Synchronisation...
+                  </>
+                ) : (
+                  <>
+                    <CloudArrowDownIcon className="-ml-1 mr-2 h-4 w-4" />
+                    Synchroniser Wix
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Modal détails */}
-      {showDetailModal && selectedAppointment && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
-          <div className="bg-white rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
-            <div className="p-8">
-              <div className="flex items-start justify-between mb-6">
-                <h2 className="text-3xl font-bold text-gray-900">Détails du rendez-vous</h2>
-                <button
-                  onClick={() => setShowDetailModal(false)}
-                  className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl p-2 transition-all"
-                >
-                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
+      {/* Filtres */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="bg-white rounded-lg shadow p-4">
+          <div className="flex flex-wrap gap-4 items-center">
+            <div className="flex items-center space-x-2">
+              <FunnelIcon className="h-5 w-5 text-gray-400" />
+              <span className="text-sm font-medium text-gray-700">Filtres:</span>
+            </div>
+            
+            <select
+              value={filter.source}
+              onChange={(e) => setFilter({...filter, source: e.target.value})}
+              className="rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
+            >
+              <option value="all">Toutes les sources</option>
+              <option value="local">Local uniquement</option>
+              <option value="wix">Wix uniquement</option>
+            </select>
+            
+            <select
+              value={filter.status}
+              onChange={(e) => setFilter({...filter, status: e.target.value})}
+              className="rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
+            >
+              <option value="all">Tous les statuts</option>
+              <option value="scheduled">Planifié</option>
+              <option value="confirmed">Confirmé</option>
+              <option value="in_progress">En cours</option>
+              <option value="completed">Terminé</option>
+              <option value="cancelled">Annulé</option>
+              <option value="no_show">Absent</option>
+            </select>
+            
+            <button
+              onClick={() => setFilter({source: 'all', status: 'all', date: 'all'})}
+              className="text-sm text-gray-500 hover:text-gray-700"
+            >
+              Réinitialiser
+            </button>
+          </div>
+        </div>
+      </div>
 
-              <div className="space-y-4">
-                <div className={`inline-block px-4 py-2 rounded-xl text-sm font-bold ${getStatusColor(selectedAppointment.status)}`}>
-                  {getStatusLabel(selectedAppointment.status)}
-                </div>
-
-                <div className="bg-blue-50 rounded-2xl p-5 border border-blue-100">
-                  <div className="text-sm text-gray-600 mb-1">Service</div>
-                  <div className="text-xl font-bold text-gray-900">{selectedAppointment.serviceName}</div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <div className="text-sm text-gray-600 mb-1">Date</div>
-                    <div className="font-medium">{formatDate(selectedAppointment.startTime)}</div>
-                  </div>
-                  <div>
-                    <div className="text-sm text-gray-600 mb-1">Heure</div>
-                    <div className="font-medium">
-                      {formatTime(selectedAppointment.startTime)} - {formatTime(selectedAppointment.endTime)}
+      {/* Liste des rendez-vous */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-12">
+        {loading ? (
+          <div className="flex justify-center py-12">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          </div>
+        ) : appointments.length === 0 ? (
+          <div className="text-center py-12">
+            <CalendarIcon className="mx-auto h-12 w-12 text-gray-400" />
+            <h3 className="mt-2 text-sm font-medium text-gray-900">Aucun rendez-vous</h3>
+            <p className="mt-1 text-sm text-gray-500">
+              {filter.source !== 'all' || filter.status !== 'all' 
+                ? 'Essayez de modifier les filtres' 
+                : 'Commencez par synchroniser avec Wix ou créez des rendez-vous manuellement'
+              }
+            </p>
+          </div>
+        ) : (
+          <div className="bg-white shadow overflow-hidden sm:rounded-md">
+            <ul className="divide-y divide-gray-200">
+              {appointments.map((appointment) => (
+                <li key={appointment.id}>
+                  <div className="px-4 py-4 sm:px-6 hover:bg-gray-50">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center space-x-3">
+                          <div className="flex-shrink-0">
+                            <UserIcon className="h-6 w-6 text-gray-400" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-sm font-medium text-gray-900 truncate">
+                              {appointment.title}
+                            </p>
+                            <p className="text-sm text-gray-500">
+                              {appointment.client_name}
+                            </p>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            {appointment.source === 'wix' && (
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                                Wix
+                              </span>
+                            )}
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(appointment.status)}`}>
+                              {getStatusLabel(appointment.status)}
+                            </span>
+                          </div>
+                        </div>
+                        
+                        <div className="mt-2 flex items-center space-x-4 text-sm text-gray-500">
+                          <div className="flex items-center space-x-1">
+                            <CalendarIcon className="h-4 w-4" />
+                            <span>{formatDate(appointment.appointment_date)}</span>
+                          </div>
+                          <div className="flex items-center space-x-1">
+                            <ClockIcon className="h-4 w-4" />
+                            <span>{formatTime(appointment.appointment_time)}</span>
+                          </div>
+                          <div className="flex items-center space-x-1">
+                            <span className="text-xs bg-gray-100 px-2 py-1 rounded">
+                              {getTypeLabel(appointment.appointment_type)}
+                            </span>
+                          </div>
+                          {appointment.client_phone && (
+                            <div className="flex items-center space-x-1">
+                              <PhoneIcon className="h-4 w-4" />
+                              <span>{appointment.client_phone}</span>
+                            </div>
+                          )}
+                        </div>
+                        
+                        {appointment.notes && (
+                          <div className="mt-2 text-sm text-gray-600">
+                            <span className="font-medium">Notes:</span> {appointment.notes}
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div className="ml-4 flex-shrink-0">
+                        <button
+                          onClick={() => {
+                            setSelectedAppointment(appointment);
+                            setShowDetailModal(true);
+                          }}
+                          className="font-medium text-blue-600 hover:text-blue-900"
+                        >
+                          Voir détails
+                        </button>
+                      </div>
                     </div>
                   </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+
+      {/* Modal de détails */}
+      {showDetailModal && selectedAppointment && (
+        <div className="fixed z-10 inset-0 overflow-y-auto">
+          <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div className="fixed inset-0 transition-opacity" aria-hidden="true">
+              <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
+            </div>
+
+            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+              <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div className="flex justify-between items-start">
+                  <h3 className="text-lg leading-6 font-medium text-gray-900">
+                    Détails du rendez-vous
+                  </h3>
+                  <button
+                    onClick={() => setShowDetailModal(false)}
+                    className="text-gray-400 hover:text-gray-500"
+                  >
+                    <XMarkIcon className="h-6 w-6" />
+                  </button>
                 </div>
-
-                <div className="border-t border-gray-200 my-4" />
-
-                <div>
-                  <div className="text-sm text-gray-600 mb-1 flex items-center gap-2">
-                    <UserIcon className="h-4 w-4" /> Client
+                
+                <div className="mt-4 space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Titre</label>
+                    <p className="mt-1 text-sm text-gray-900">{selectedAppointment.title}</p>
                   </div>
-                  <div className="font-medium text-gray-900">{selectedAppointment.clientName}</div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Client</label>
+                    <p className="mt-1 text-sm text-gray-900">{selectedAppointment.client_name}</p>
+                    {selectedAppointment.client_email && (
+                      <p className="text-sm text-gray-500">{selectedAppointment.client_email}</p>
+                    )}
+                    {selectedAppointment.client_phone && (
+                      <p className="text-sm text-gray-500">{selectedAppointment.client_phone}</p>
+                    )}
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Date</label>
+                      <p className="mt-1 text-sm text-gray-900">{formatDate(selectedAppointment.appointment_date)}</p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Heure</label>
+                      <p className="mt-1 text-sm text-gray-900">{formatTime(selectedAppointment.appointment_time)}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Type</label>
+                      <p className="mt-1 text-sm text-gray-900">{getTypeLabel(selectedAppointment.appointment_type)}</p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Statut</label>
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(selectedAppointment.status)}`}>
+                        {getStatusLabel(selectedAppointment.status)}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  {selectedAppointment.source === 'wix' && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Source</label>
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                        Wix Bookings
+                      </span>
+                    </div>
+                  )}
+                  
+                  {selectedAppointment.notes && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Notes</label>
+                      <p className="mt-1 text-sm text-gray-900">{selectedAppointment.notes}</p>
+                    </div>
+                  )}
                 </div>
-
-                {selectedAppointment.clientEmail && (
-                  <div className="flex items-center gap-2 text-gray-700">
-                    <EnvelopeIcon className="h-4 w-4" />
-                    <span>{selectedAppointment.clientEmail}</span>
-                  </div>
-                )}
-
-                {selectedAppointment.clientPhone && (
-                  <div className="flex items-center gap-2 text-gray-700">
-                    <PhoneIcon className="h-4 w-4" />
-                    <span>{selectedAppointment.clientPhone}</span>
-                  </div>
-                )}
-
-                {selectedAppointment.location && (
-                  <div>
-                    <div className="text-sm text-gray-600 mb-1">Lieu</div>
-                    <div className="font-medium">{selectedAppointment.location}</div>
-                  </div>
-                )}
-
-                {selectedAppointment.notes && (
-                  <div>
-                    <div className="text-sm text-gray-600 mb-1">Notes</div>
-                    <div className="text-gray-800">{selectedAppointment.notes}</div>
-                  </div>
-                )}
+              </div>
+              
+              <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                <button
+                  type="button"
+                  className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm"
+                  onClick={() => setShowDetailModal(false)}
+                >
+                  Fermer
+                </button>
               </div>
             </div>
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }

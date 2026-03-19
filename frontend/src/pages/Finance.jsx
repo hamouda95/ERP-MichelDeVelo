@@ -10,6 +10,8 @@ import {
   TrashIcon,
   CalendarIcon
 } from '@heroicons/react/24/outline';
+import { financeAPI } from '../services/api';
+import toast from 'react-hot-toast';
 
 export default function Finance() {
   const [sales, setSales] = useState([]);
@@ -20,6 +22,8 @@ export default function Finance() {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [editingExpense, setEditingExpense] = useState(null);
+  const [dashboardStats, setDashboardStats] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   // Formulaire dépense
   const [newExpense, setNewExpense] = useState({
@@ -46,7 +50,52 @@ export default function Finance() {
     loadFinancialData();
   }, [selectedMonth, selectedYear, selectedPeriod]);
 
-  const loadFinancialData = () => {
+  const getStartDate = () => {
+    const now = new Date();
+    if (selectedPeriod === 'month') {
+      return new Date(selectedYear, selectedMonth, 1).toISOString().split('T')[0];
+    } else if (selectedPeriod === 'year') {
+      return new Date(selectedYear, 0, 1).toISOString().split('T')[0];
+    }
+    return new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+  };
+
+  const getEndDate = () => {
+    const now = new Date();
+    if (selectedPeriod === 'month') {
+      return new Date(selectedYear, selectedMonth + 1, 0).toISOString().split('T')[0];
+    } else if (selectedPeriod === 'year') {
+      return new Date(selectedYear, 11, 31).toISOString().split('T')[0];
+    }
+    return now.toISOString().split('T')[0];
+  };
+
+  const loadFinancialData = async () => {
+    try {
+      setLoading(true);
+      
+      // Charger les données du dashboard finance
+      const dashboardResponse = await financeAPI.getDashboard();
+      setDashboardStats(dashboardResponse.data);
+
+      // Charger les dépenses
+      const expensesResponse = await financeAPI.getExpenses({
+        start_date: getStartDate(),
+        end_date: getEndDate(),
+      });
+      setExpenses(expensesResponse.data.results || expensesResponse.data);
+
+    } catch (error) {
+      console.error('Erreur lors du chargement des données financières:', error);
+      toast.error('Erreur lors du chargement des données');
+      // Fallback vers données de démonstration
+      loadDemoData();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadDemoData = () => {
     // Données de démonstration - Ventes (CA)
     const demoSales = [
       { id: 1, date: '2024-11-05', amount_ht: 800, amount_ttc: 960, type: 'sale' },
@@ -144,12 +193,33 @@ export default function Finance() {
   const financials = calculateFinancials();
 
   // Ajouter/Modifier une dépense
-  const saveExpense = () => {
+  const saveExpense = async () => {
     if (!newExpense.description || newExpense.amount <= 0) {
-      alert('Veuillez remplir tous les champs obligatoires');
+      toast.error('Veuillez remplir tous les champs obligatoires');
       return;
     }
 
+    try {
+      if (editingExpense) {
+        await financeAPI.updateExpense(editingExpense.id, newExpense);
+        toast.success('Dépense mise à jour avec succès');
+      } else {
+        await financeAPI.createExpense(newExpense);
+        toast.success('Dépense créée avec succès');
+      }
+      
+      resetExpenseForm();
+      setShowExpenseModal(false);
+      loadFinancialData(); // Recharger les données
+    } catch (error) {
+      console.error('Erreur lors de la sauvegarde de la dépense:', error);
+      toast.error('Erreur lors de la sauvegarde de la dépense');
+      // Fallback vers données locales
+      saveExpenseLocal();
+    }
+  };
+
+  const saveExpenseLocal = () => {
     if (editingExpense) {
       // Modification
       setExpenses(expenses.map(e => 

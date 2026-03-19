@@ -67,7 +67,8 @@ class Order(models.Model):
 
 class OrderItem(models.Model):
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='items')
-    product = models.ForeignKey(Product, on_delete=models.PROTECT)
+    product = models.ForeignKey(Product, on_delete=models.PROTECT, null=True, blank=True)
+    description = models.CharField(max_length=200, blank=True, null=True)  # Pour les réparations
     
     quantity = models.IntegerField(default=1)
     unit_price_ht = models.DecimalField(max_digits=10, decimal_places=2)
@@ -81,7 +82,10 @@ class OrderItem(models.Model):
         db_table = 'order_items'
     
     def __str__(self):
-        return f"{self.product.name} x {self.quantity}"
+        if self.product:
+            return f"{self.product.name} x {self.quantity}"
+        else:
+            return f"{self.description or 'Service'} x {self.quantity}"
     
     def save(self, *args, **kwargs):
         self.subtotal_ht = self.unit_price_ht * self.quantity

@@ -8,7 +8,7 @@ SECRET_KEY = config('SECRET_KEY', default='django-insecure-change-this-in-produc
 DEBUG = config('DEBUG', default=False, cast=bool)
 
 ### RENDER - Claude
-ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1,.onrender.com').split(',')
+ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1,testserver,.onrender.com').split(',')
 
 # HTTPS
 SECURE_SSL_REDIRECT = not DEBUG
@@ -34,6 +34,10 @@ INSTALLED_APPS = [
     'repairs',      # ✅ Vérifier que c'est présent
     'quotes',       # ✅ Vérifier que c'est présent
     'suppliers',    # ✅ Vérifier que c'est présent
+    'appointments',  # ✅ Nouvelle app pour les rendez-vous
+    'analytics',     # ✅ App pour les statistiques avancées
+    'finance',       # ✅ NOUVEAU: App pour la gestion financière
+    'settings_app',  # ✅ NOUVEAU: App pour la configuration système
 ]
 
 # Custom User Model
@@ -92,6 +96,7 @@ DATABASES['default']['OPTIONS'].update({
     'keepalives_idle': 30,
     'keepalives_interval': 10,
     'keepalives_count': 5,
+    'sslmode': 'require',
 })
 
 AUTH_PASSWORD_VALIDATORS = [
@@ -116,7 +121,14 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # ✅ CORRECTION: CORS Configuration complète
-CORS_ALLOWED_ORIGINS = ["https://erp-micheldevelo-frontend.onrender.com"]
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "http://localhost:3001",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:3001",
+    "http://127.0.0.1:53822",
+    "https://erp-micheldevelo-frontend.onrender.com"
+]
 
 CORS_ALLOW_CREDENTIALS = True
 
@@ -142,6 +154,15 @@ CORS_ALLOW_METHODS = [
     'PUT',
 ]
 
+# ✅ AJOUT: Cache local pour les performances (sans Redis)
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'bike_erp_cache',
+        'TIMEOUT': 300,  # 5 minutes
+    }
+}
+
 # REST Framework Configuration
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
@@ -154,6 +175,18 @@ REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 50,
 }
+
+# ✅ AMÉLIORATION: Security Headers avancés
+SECURE_BROWSER_XSS_FILTER = True
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+SECURE_HSTS_PRELOAD = True
+SECURE_HSTS_SECONDS = 31536000  # 1 an
+X_FRAME_OPTIONS = 'DENY'
+
+# ✅ AMÉLIORATION: Rate limiting simple
+RATELIMIT_ENABLE = True
+RATELIMIT_USE_CACHE = 'default'
 
 # JWT Configuration
 from datetime import timedelta
@@ -190,3 +223,19 @@ CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = TIME_ZONE
+
+# SMS Configuration (Free Mobile - 100% Gratuit)
+SMS_ENABLED = config('SMS_ENABLED', default=False, cast=bool)
+SMS_PROVIDER = config('SMS_PROVIDER', default='TWILIO')
+FREE_MOBILE_USER = config('FREE_MOBILE_USER', default='')
+FREE_MOBILE_API_KEY = config('FREE_MOBILE_API_KEY', default='')
+
+# Configuration Twilio (conservée pour compatibilité)
+SMS_TEST_MODE = config('SMS_TEST_MODE', default=True, cast=bool)
+TWILIO_ACCOUNT_SID = config('TWILIO_ACCOUNT_SID', default='')
+TWILIO_AUTH_TOKEN = config('TWILIO_AUTH_TOKEN', default='')
+TWILIO_PHONE_NUMBER = config('TWILIO_PHONE_NUMBER', default='')
+PHONE_NUMBER_VILLE_AVRAY = config('PHONE_NUMBER_VILLE_AVRAY', default='')
+PHONE_NUMBER_GARCHES = config('PHONE_NUMBER_GARCHES', default='')
+
+# ✅ CORS Configuration pour le frontend (déjà configurée plus haut)

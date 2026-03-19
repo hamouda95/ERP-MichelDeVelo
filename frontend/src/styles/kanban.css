@@ -1,0 +1,375 @@
+/**
+ * ============================================================================ 
+ * STYLES KANBAN - WORKFLOW VISUEL DES RÉPARATIONS
+ * ============================================================================ 
+ */
+
+/* Styles pour le glisser-déposer */
+.kanban-column {
+    transition: background-color 0.2s ease;
+    min-height: 500px;
+}
+
+.kanban-column.dragging-over {
+    background-color: rgba(59, 130, 246, 0.1);
+    border-color: rgb(59, 130, 246);
+}
+
+.repair-card {
+    transition: all 0.2s ease;
+    cursor: move;
+}
+
+.repair-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.repair-card.dragging {
+    opacity: 0.5;
+    transform: rotate(5deg);
+}
+
+/* Animation de drop */
+.drop-animation {
+    animation: dropIn 0.3s ease-out;
+}
+
+@keyframes dropIn {
+    0% {
+        transform: translateY(-20px);
+        opacity: 0;
+    }
+    100% {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+/* Styles pour les badges de statut */
+.status-badge {
+    transition: all 0.2s ease;
+}
+
+.status-badge:hover {
+    transform: scale(1.05);
+}
+
+/* Styles pour les photos */
+.repair-photo {
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.repair-photo:hover {
+    transform: scale(1.1);
+    z-index: 10;
+}
+
+/* Scrollbar personnalisée */
+.kanban-column::-webkit-scrollbar {
+    width: 6px;
+}
+
+.kanban-column::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 3px;
+}
+
+.kanban-column::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 3px;
+}
+
+.kanban-column::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+
+/* Animation de chargement */
+.loading-spinner {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Styles pour les modales */
+.modal-backdrop {
+    animation: fadeIn 0.2s ease-out;
+}
+
+.modal-content {
+    animation: slideIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+    0% { opacity: 0; }
+    100% { opacity: 1; }
+}
+
+@keyframes slideIn {
+    0% {
+        transform: translateY(-20px);
+        opacity: 0;
+    }
+    100% {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+/* Styles pour les formulaires */
+.form-input {
+    transition: all 0.2s ease;
+}
+
+.form-input:focus {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+}
+
+/* Styles pour les boutons */
+.btn-primary {
+    transition: all 0.2s ease;
+}
+
+.btn-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.btn-primary:active {
+    transform: translateY(0);
+}
+
+/* Styles pour les cartes de statistiques */
+.stat-card {
+    transition: all 0.2s ease;
+}
+
+.stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+}
+
+/* Styles pour les tags */
+.tag {
+    transition: all 0.2s ease;
+}
+
+.tag:hover {
+    transform: scale(1.05);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .kanban-column {
+        min-width: 280px;
+    }
+    
+    .repair-card {
+        font-size: 0.875rem;
+    }
+}
+
+@media (max-width: 640px) {
+    .kanban-column {
+        min-width: 240px;
+    }
+    
+    .repair-card {
+        font-size: 0.8rem;
+        padding: 0.75rem;
+    }
+}
+
+/* Styles pour les étapes du formulaire */
+.step-indicator {
+    transition: all 0.3s ease;
+}
+
+.step-indicator.active {
+    transform: scale(1.1);
+}
+
+.step-indicator.completed {
+    animation: checkmark 0.3s ease-out;
+}
+
+@keyframes checkmark {
+    0% { transform: scale(1) rotate(0deg); }
+    50% { transform: scale(1.2) rotate(180deg); }
+    100% { transform: scale(1) rotate(360deg); }
+}
+
+/* Styles pour les photos upload */
+.photo-upload-area {
+    transition: all 0.2s ease;
+}
+
+.photo-upload-area:hover {
+    border-color: #3b82f6;
+    background-color: rgba(59, 130, 246, 0.05);
+}
+
+.photo-upload-area.drag-over {
+    border-color: #3b82f6;
+    background-color: rgba(59, 130, 246, 0.1);
+    transform: scale(1.02);
+}
+
+/* Animation de notification */
+.notification {
+    animation: slideInRight 0.3s ease-out;
+}
+
+@keyframes slideInRight {
+    0% {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    100% {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+/* Styles pour les tooltips */
+.tooltip {
+    position: relative;
+}
+
+.tooltip::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: #1f2937;
+    color: white;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+}
+
+.tooltip:hover::after {
+    opacity: 1;
+}
+
+/* Styles pour les états de chargement */
+.skeleton {
+    background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%);
+    background-size: 200% 100%;
+    animation: loading 1.5s infinite;
+}
+
+@keyframes loading {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+/* Styles pour les filtres */
+.filter-chip {
+    transition: all 0.2s ease;
+}
+
+.filter-chip:hover {
+    transform: translateY(-1px);
+}
+
+.filter-chip.active {
+    background-color: #3b82f6;
+    color: white;
+}
+
+/* Styles pour le drag and drop */
+.drop-zone {
+    transition: all 0.3s ease;
+}
+
+.drop-zone.drag-over {
+    background-color: rgba(34, 197, 94, 0.1);
+    border-color: #22c55e;
+    transform: scale(1.02);
+}
+
+/* Styles pour les animations de transition */
+.fade-enter {
+    opacity: 0;
+}
+
+.fade-enter-active {
+    opacity: 1;
+    transition: opacity 300ms ease-in;
+}
+
+.fade-exit {
+    opacity: 1;
+}
+
+.fade-exit-active {
+    opacity: 0;
+    transition: opacity 300ms ease-out;
+}
+
+/* Styles pour les cards en grid */
+.card-grid {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+}
+
+/* Styles pour les états de validation */
+.form-field.error {
+    border-color: #ef4444;
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+}
+
+.form-field.success {
+    border-color: #22c55e;
+    box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.1);
+}
+
+/* Styles pour les boutons d'action rapides */
+.quick-action {
+    transition: all 0.2s ease;
+}
+
+.quick-action:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.quick-action:active {
+    transform: scale(0.95);
+}
+
+/* Performance optimizations */
+.repair-card {
+    will-change: transform;
+}
+
+.kanban-column {
+    will-change: background-color;
+    contain: layout style paint;
+}
+
+/* Dark mode support (si nécessaire) */
+@media (prefers-color-scheme: dark) {
+    .kanban-column {
+        background-color: #1f2937;
+        border-color: #374151;
+    }
+    
+    .repair-card {
+        background-color: #111827;
+        border-color: #374151;
+        color: #f9fafb;
+    }
+}

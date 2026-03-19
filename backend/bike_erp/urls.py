@@ -18,9 +18,14 @@ urlpatterns = [
     path('api/orders/', include('orders.urls')),
     path('api/invoices/', include('invoices.urls')),
     path('api/analytics/', include('analytics.urls')),
-    path('api/repairs/', include('repairs.urls')),       # ✅ Nouveau
-    path('api/quotes/', include('quotes.urls')),         # ✅ Nouveau
-    path('api/suppliers/', include('suppliers.urls')),   # ✅ Nouveau
+    path('api/repairs/', include('repairs.urls')),       
+    path('api/quotes/', include('quotes.urls')),         
+    path('api/suppliers/', include('suppliers.urls')),   
+    path('test_module/', include('test_module.urls')), # 
+    path('api/appointments/', include('appointments.urls')), # 
+    # NOUVEAUX: Finance et Settings
+    path('api/finance/', include('finance.urls')),
+    path('api/settings/', include('settings_app.urls')),
     
     # Social Auth
     path('api/social-auth/', include('social_django.urls', namespace='social')),

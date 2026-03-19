@@ -52,47 +52,75 @@ class RepairSerializer(serializers.ModelSerializer):
 class RepairCreateSerializer(serializers.ModelSerializer):
     """Serializer pour la création et mise à jour des réparations"""
     items = RepairItemSerializer(many=True, required=False)
-    parts_needed = serializers.ListField(required=False, allow_empty=True)
     
-    # Rendre client obligatoire
-    client = serializers.PrimaryKeyRelatedField(
-        queryset=__import__('clients.models', fromlist=['Client']).Client.objects.all(),
-        required=True
-    )
-    
-    # Rendre store obligatoire
-    store = serializers.ChoiceField(
-        choices=Repair.STORE_CHOICES,
-        required=True
-    )
-    
-    # Rendre bike_brand (Produit déposé) obligatoire
-    bike_brand = serializers.CharField(required=True, allow_blank=False)
-    
-    # Rendre description obligatoire
-    description = serializers.CharField(required=True, allow_blank=False)
-    
-    # Priority avec défaut
-    priority = serializers.ChoiceField(
-        choices=Repair.PRIORITY_CHOICES,
-        default='normal'
-    )
+    # Champs CharField pour accepter FormData (qui envoie tout comme strings)
+    # La conversion en integer/objet se fait dans les validateurs
+    client = serializers.CharField(required=True)
+    estimated_cost = serializers.CharField(required=False, allow_blank=True)
+    max_budget = serializers.CharField(required=False, allow_blank=True)
     
     class Meta:
         model = Repair
         exclude = ['reference_number', 'created_by', 'created_at', 'updated_at']
     
-    def validate_estimated_cost(self, value):
-        """Valider que le coût estimé est positif"""
-        if value < 0:
-            raise serializers.ValidationError("Le coût estimé ne peut pas être négatif")
+    def validate_client(self, value):
+        """Valider et convertir l'ID client en objet Client"""
+        from clients.models import Client
+        try:
+            # Convertir en int car FormData envoie des strings
+            client_id = int(value)
+            return Client.objects.get(pk=client_id)
+        except (ValueError, TypeError):
+            raise serializers.ValidationError("L'ID client doit être un nombre valide")
+        except Client.DoesNotExist:
+            raise serializers.ValidationError("Client non trouvé")
+    
+    def validate_store(self, value):
+        """Valider le magasin"""
+        valid_stores = ['ville_avray', 'garches']
+        if value not in valid_stores:
+            raise serializers.ValidationError(f"Magasin invalide. Choix: {valid_stores}")
         return value
     
+    def validate_bike_brand(self, value):
+        """Valider que bike_brand n'est pas vide"""
+        if not value or value.strip() == '':
+            raise serializers.ValidationError("La marque du vélo est obligatoire")
+        return value.strip()
+    
+    def validate_description(self, value):
+        """Valider que description n'est pas vide"""
+        if not value or value.strip() == '':
+            raise serializers.ValidationError("La description est obligatoire")
+        return value.strip()
+    
+    def validate(self, attrs):
+        """Validation personnalisée"""
+        return super().validate(attrs)
+    
+    def validate_estimated_cost(self, value):
+        """Valider et convertir le coût estimé"""
+        if value is None or value == '':
+            return 0
+        try:
+            cost = float(value)
+            if cost < 0:
+                raise serializers.ValidationError("Le coût estimé ne peut pas être négatif")
+            return cost
+        except (ValueError, TypeError):
+            raise serializers.ValidationError("Le coût estimé doit être un nombre valide")
+    
     def validate_max_budget(self, value):
-        """Valider que le budget max est positif"""
-        if value is not None and value < 0:
-            raise serializers.ValidationError("Le budget maximum ne peut pas être négatif")
-        return value
+        """Valider et convertir le budget max"""
+        if value is None or value == '':
+            return None
+        try:
+            budget = float(value)
+            if budget < 0:
+                raise serializers.ValidationError("Le budget maximum ne peut pas être négatif")
+            return budget
+        except (ValueError, TypeError):
+            raise serializers.ValidationError("Le budget maximum doit être un nombre valide")
     
     def validate(self, data):
         """
@@ -112,7 +140,6 @@ class RepairCreateSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         """Créer une réparation avec ses items"""
         items_data = validated_data.pop('items', [])
-        parts_needed = validated_data.pop('parts_needed', [])
         
         # Créer la réparation
         repair = Repair.objects.create(**validated_data)
@@ -126,7 +153,6 @@ class RepairCreateSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         """Mettre à jour une réparation"""
         items_data = validated_data.pop('items', None)
-        parts_needed = validated_data.pop('parts_needed', None)
         
         # Mettre à jour les champs de base
         for attr, value in validated_data.items():

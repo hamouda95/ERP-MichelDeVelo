@@ -12,27 +12,35 @@ import {
   FunnelIcon
 } from '@heroicons/react/24/outline';
 
-// ----- StatCard -----
-function StatCard({ label, value, icon: Icon, color = 'blue' }) {
+// ----- StatCard Modernisée -----
+function StatCard({ label, value, icon: Icon, color = 'blue', trend = null, trendUp = true }) {
   const colorClasses = {
-    blue: 'bg-blue-50 text-blue-600',
-    green: 'bg-green-50 text-green-600',
-    red: 'bg-red-50 text-red-600',
-    yellow: 'bg-yellow-50 text-yellow-600',
+    blue: 'bg-blue-50 text-blue-600 border-blue-200',
+    green: 'bg-green-50 text-green-600 border-green-200',
+    red: 'bg-red-50 text-red-600 border-red-200',
+    yellow: 'bg-yellow-50 text-yellow-600 border-yellow-200',
   };
 
   return (
-    <div className="bg-white rounded-xl shadow p-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm text-gray-600">{label}</p>
-          <p className="text-2xl font-bold text-gray-900 mt-1">{value}</p>
-        </div>
+    <div className="card-hover bg-white rounded-xl shadow-soft border border-gray-200 p-6 animate-fade-in">
+      <div className="flex items-center justify-between mb-4">
         {Icon && (
-          <div className={`p-3 rounded-lg ${colorClasses[color]}`}>
+          <div className={`p-3 rounded-lg border ${colorClasses[color]}`}>
             <Icon className="w-6 h-6" />
           </div>
         )}
+        {trend && (
+          <div className={`flex items-center gap-1 text-sm font-semibold ${
+            trendUp ? 'text-green-600' : 'text-red-600'
+          }`}>
+            <span className="text-xs">{trendUp ? '↑' : '↓'}</span>
+            {trend}
+          </div>
+        )}
+      </div>
+      <div>
+        <p className="text-sm text-gray-600 font-medium">{label}</p>
+        <p className="text-3xl font-bold text-gray-900 mt-1">{value}</p>
       </div>
     </div>
   );
@@ -199,7 +207,7 @@ export default function Products() {
 
   const csvSafe = (val) => {
     if (val == null) return '';
-    const s = String(val).replace(/\"/g, '""');
+    const s = String(val).replace(/"/g, '""');
     // wrap if contains comma or newline
     return s.includes(',') || s.includes('\n') ? `"${s}"` : s;
   };
@@ -215,44 +223,47 @@ export default function Products() {
   ), [filters]);
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
+    <div className="p-6 space-y-6 max-w-7xl mx-auto">
+      {/* Header Modernisé */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Gestion des Produits & Stocks</h1>
-          <p className="text-gray-600 mt-1">{filteredProducts.length} produits affichés sur {products.length}</p>
+        <div className="animate-slide-up">
+          <h1 className="text-3xl font-bold text-gray-900 text-shadow">Gestion des Produits & Stocks</h1>
+          <p className="text-gray-600 mt-1">
+            <span className="font-semibold text-blue-600">{filteredProducts.length}</span> produits affichés sur{' '}
+            <span className="font-semibold text-gray-700">{products.length}</span>
+          </p>
         </div>
         <div className="flex gap-3">
           <button
             onClick={exportToCSV}
-            className="flex items-center gap-2 bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg font-semibold hover:bg-gray-50 transition"
+            className="btn-secondary flex items-center gap-2"
           >
-            <ArrowDownTrayIcon className="w-5 h-5" />
+            <ArrowDownTrayIcon className="w-4 h-4" />
             Exporter CSV
           </button>
           <button
             onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition"
+            className="btn-primary flex items-center gap-2"
           >
-            <PlusIcon className="w-5 h-5" />
+            <PlusIcon className="w-4 h-4" />
             Ajouter un produit
           </button>
         </div>
       </div>
 
-      {/* Stats */}
+      {/* Stats Modernisées */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-4">
         <StatCard label="Total produits" value={stats.total} color="blue" />
-        <StatCard label="Produits actifs" value={stats.activeProducts} color="green" />
-        <StatCard label="Rupture de stock" value={stats.outOfStock} color="red" />
+        <StatCard label="Produits actifs" value={stats.activeProducts} color="green" trend="+12%" trendUp={true} />
+        <StatCard label="Rupture de stock" value={stats.outOfStock} color="red" trend="-3%" trendUp={false} />
         <StatCard label="Stock faible" value={stats.lowStock} color="yellow" />
         <StatCard label="Stock Ville d'Avray" value={stats.totalStockVilleAvray} color="blue" />
         <StatCard label="Stock Garches" value={stats.totalStockGarches} color="blue" />
-        <StatCard label="Valeur totale" value={`${stats.stockValue} €`} color="green" />
+        <StatCard label="Valeur totale" value={`${stats.stockValue} €`} color="green" trend="+8%" trendUp={true} />
       </div>
 
-      {/* Search & Filters */}
-      <div className="bg-white rounded-xl shadow-lg p-4 space-y-4">
+      {/* Search & Filters Modernisés */}
+      <div className="card bg-white rounded-xl shadow-medium p-6 space-y-4 animate-fade-in">
         <div className="flex items-center gap-4">
           <div className="flex-1 relative">
             <MagnifyingGlassIcon className="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
@@ -261,21 +272,29 @@ export default function Products() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Rechercher par nom, référence ou code-barre..."
-              className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="form-input pl-10"
             />
           </div>
 
-          <div className="flex bg-gray-100 rounded-lg p-1">
+          <div className="flex bg-gray-100 rounded-lg p-1 border border-gray-200">
             <button
               onClick={() => setViewMode('list')}
-              className={`p-2 rounded ${viewMode === 'list' ? 'bg-white shadow' : ''}`}
+              className={`p-2 rounded-md transition-all duration-200 ${
+                viewMode === 'list' 
+                  ? 'bg-white shadow-sm text-primary-600' 
+                  : 'text-gray-600 hover:text-gray-800'
+              }`}
               title="Vue liste"
             >
               <ListBulletIcon className="w-5 h-5" />
             </button>
             <button
               onClick={() => setViewMode('grid')}
-              className={`p-2 rounded ${viewMode === 'grid' ? 'bg-white shadow' : ''}`}
+              className={`p-2 rounded-md transition-all duration-200 ${
+                viewMode === 'grid' 
+                  ? 'bg-white shadow-sm text-primary-600' 
+                  : 'text-gray-600 hover:text-gray-800'
+              }`}
               title="Vue grille"
             >
               <ViewColumnsIcon className="w-5 h-5" />
@@ -292,7 +311,7 @@ export default function Products() {
           <select
             value={filters.productType}
             onChange={(e) => setFilters({...filters, productType: e.target.value})}
-            className="px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+            className="form-input px-4 py-2 text-sm"
           >
             <option value="all">Tous les types</option>
             <option value="bike">Vélos</option>
@@ -305,7 +324,7 @@ export default function Products() {
           <select
             value={filters.visibility}
             onChange={(e) => setFilters({...filters, visibility: e.target.value})}
-            className="px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+            className="form-input px-4 py-2 text-sm"
           >
             <option value="all">Toutes visibilités</option>
             <option value="visible">Visibles</option>
@@ -315,7 +334,7 @@ export default function Products() {
           <select
             value={filters.brand}
             onChange={(e) => setFilters({...filters, brand: e.target.value})}
-            className="px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+            className="form-input px-4 py-2 text-sm"
           >
             <option value="all">Toutes les marques</option>
             {brands.map(brand => (
@@ -326,7 +345,7 @@ export default function Products() {
           <select
             value={filters.stockLevel}
             onChange={(e) => setFilters({...filters, stockLevel: e.target.value})}
-            className="px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+            className="form-input px-4 py-2 text-sm"
           >
             <option value="all">Tous les niveaux de stock</option>
             <option value="out">Rupture de stock</option>
@@ -337,7 +356,7 @@ export default function Products() {
           <select
             value={filters.store}
             onChange={(e) => setFilters({...filters, store: e.target.value})}
-            className="px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+            className="form-input px-4 py-2 text-sm"
           >
             <option value="all">Tous les magasins</option>
             <option value="ville_avray">Ville d'Avray uniquement</option>
@@ -347,7 +366,7 @@ export default function Products() {
           {hasActiveFilters && (
             <button
               onClick={resetFilters}
-              className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+              className="text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors"
             >
               Réinitialiser tous les filtres
             </button>
@@ -355,10 +374,10 @@ export default function Products() {
         </div>
       </div>
 
-      {/* Products display */}
+      {/* Products display Modernisé */}
       {loading ? (
         <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600"></div>
+          <div className="spinner w-16 h-16"></div>
         </div>
       ) : viewMode === 'grid' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
@@ -373,58 +392,58 @@ export default function Products() {
           ))}
         </div>
       ) : (
-        <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+        <div className="card bg-white rounded-xl shadow-medium overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+            <table className="table">
+              <thead>
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Référence</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nom</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Marque</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Prix TTC</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ville d'Avray</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Garches</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Visible</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                  <th className="table-header">Référence</th>
+                  <th className="table-header">Nom</th>
+                  <th className="table-header">Type</th>
+                  <th className="table-header">Marque</th>
+                  <th className="table-header">Prix TTC</th>
+                  <th className="table-header">Ville d'Avray</th>
+                  <th className="table-header">Garches</th>
+                  <th className="table-header">Total</th>
+                  <th className="table-header">Visible</th>
+                  <th className="table-header">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {filteredProducts.map((product) => (
-                  <tr key={product.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-900">{product.reference}</td>
-                    <td className="px-6 py-4 text-gray-900">{product.name}</td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="text-xs px-2 py-1 bg-gray-100 text-gray-700 rounded-full">
+                  <tr key={product.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="table-cell font-medium text-gray-900">{product.reference}</td>
+                    <td className="table-cell text-gray-900">{product.name}</td>
+                    <td className="table-cell whitespace-nowrap">
+                      <span className="badge-gray">
                         {product.product_type}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-gray-600">{product.brand || '-'}</td>
-                    <td className="px-6 py-4 whitespace-nowrap font-semibold text-gray-900">{product.price_ttc} €</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-center">
+                    <td className="table-cell text-gray-600">{product.brand || '-'}</td>
+                    <td className="table-cell font-semibold text-gray-900">{product.price_ttc} €</td>
+                    <td className="table-cell text-center">
                       <span className="font-semibold text-gray-700">{Number(product.stock_ville_avray) || 0}</span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-center">
+                    <td className="table-cell text-center">
                       <span className="font-semibold text-gray-700">{Number(product.stock_garches) || 0}</span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-center">
+                    <td className="table-cell text-center">
                       <span className="font-semibold text-gray-900">{getTotalStock(product)}</span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="table-cell">
                       <button
                         onClick={() => toggleVisibility(product.id, product.is_visible)}
-                        className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                          product.is_visible ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                        }`}
+                        className={`badge ${
+                          product.is_visible ? 'badge-green' : 'badge-gray'
+                        } transition-colors`}
                       >
                         {product.is_visible ? 'Visible' : 'Masqué'}
                       </button>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="table-cell">
                       <button
                         onClick={() => handleEdit(product)}
-                        className="text-blue-600 hover:text-blue-700 font-medium"
+                        className="text-blue-600 hover:text-blue-700 font-medium transition-colors"
                         title="Modifier"
                       >
                         <PencilIcon className="w-5 h-5" />
@@ -435,20 +454,20 @@ export default function Products() {
               </tbody>
               <tfoot className="bg-blue-50">
                 <tr>
-                  <td colSpan="5" className="px-6 py-4 text-right font-bold text-gray-900">
+                  <td colSpan="5" className="table-cell text-right font-bold text-gray-900">
                     TOTAL :
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-center">
+                  <td className="table-cell text-center">
                     <span className="text-lg font-bold text-blue-600">
                       {filteredProducts.reduce((sum, p) => sum + (Number(p.stock_ville_avray) || 0), 0)}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-center">
+                  <td className="table-cell text-center">
                     <span className="text-lg font-bold text-blue-600">
                       {filteredProducts.reduce((sum, p) => sum + (Number(p.stock_garches) || 0), 0)}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-center">
+                  <td className="table-cell text-center">
                     <span className="text-lg font-bold text-blue-600">
                       {filteredProducts.reduce((sum, p) => sum + getTotalStock(p), 0)}
                     </span>
@@ -462,12 +481,16 @@ export default function Products() {
       )}
 
       {!loading && filteredProducts.length === 0 && (
-        <div className="bg-white rounded-xl shadow-lg p-12 text-center">
-          <p className="text-gray-500 text-lg">Aucun produit ne correspond à vos critères</p>
+        <div className="card bg-white rounded-xl shadow-medium p-12 text-center animate-fade-in">
+          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <MagnifyingGlassIcon className="w-8 h-8 text-gray-400" />
+          </div>
+          <p className="text-gray-500 text-lg mb-2">Aucun produit ne correspond à vos critères</p>
+          <p className="text-gray-400 text-sm mb-4">Essayez de modifier vos filtres ou votre recherche</p>
           {hasActiveFilters && (
             <button
               onClick={resetFilters}
-              className="mt-4 text-blue-600 hover:text-blue-700 font-medium"
+              className="btn-primary"
             >
               Réinitialiser les filtres
             </button>

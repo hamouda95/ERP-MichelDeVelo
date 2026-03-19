@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import {
-  PlusIcon,
   MagnifyingGlassIcon,
-  PencilIcon,
+  PlusIcon,
   TrashIcon,
-  EyeIcon,
-  PrinterIcon,
-  ShoppingCartIcon,
+  XMarkIcon,
+  DocumentTextIcon,
+  CalendarIcon,
+  UserIcon,
+  CurrencyEuroIcon
 } from '@heroicons/react/24/outline';
-import api from '../services/api';
+import { quotesAPI, clientsAPI, productsAPI } from '../services/api';
 
 export default function Quotes() {
   const [quotes, setQuotes] = useState([]);
@@ -56,47 +57,30 @@ export default function Quotes() {
     garches: 'Garches'
   };
 
-  useEffect(() => {
-    fetchQuotes();
-    fetchClients();
-    fetchProducts();
-  }, []);
-
   const fetchQuotes = async () => {
     try {
-      const response = await api.get('/quotes/');
-      setQuotes(response.data.results || response.data); // 👈 Handles both formats
+      const response = await quotesAPI.getAll();
+      setQuotes(response.data.results || response.data); // Handles both formats
     } catch (error) {
-      console.error('Erreur:', error);
+      console.error('Erreur lors du chargement des devis:', error);
       showNotification('Erreur lors du chargement des devis', 'error');
     }
   };
 
-
   const fetchClients = async () => {
     try {
-      const response = await api.get('/clients/');
-      setClients(response.data.results || []);
+      const response = await clientsAPI.getAll();
+      setClients(response.data.results || response.data);
     } catch (error) {
-      console.error('Erreur:', error);
+      console.error('Erreur lors du chargement des clients:', error);
+      showNotification('Erreur lors du chargement des clients', 'error');
     }
   };
 
-
-
   const fetchProducts = async () => {
     try {
-      const response = await api.get('/products/');
-      const data = response.data;
-
-      // Normalize the structure so we always get an array
-      const productsArray =
-        Array.isArray(data) ? data :
-        Array.isArray(data.results) ? data.results :
-        Array.isArray(data.products) ? data.products :
-        [];
-
-      setProducts(productsArray);
+      const response = await productsAPI.getAll();
+      setProducts(response.data.results || response.data);
     } catch (error) {
       console.error('Erreur:', error);
     }
@@ -155,10 +139,10 @@ export default function Quotes() {
       const payload = { ...formData, items: normalizedItems, discount_amount: Number(formData.discount_amount) };
 
       if (selectedQuote) {
-        await api.put(`/quotes/${selectedQuote.id}/`, payload);
+        await quotesAPI.update(selectedQuote.id, payload);
         showNotification('Devis mis à jour avec succès');
       } else {
-        await api.post('/quotes/', payload);
+        await quotesAPI.create(payload);
         showNotification('Devis créé avec succès');
       }
 
@@ -174,7 +158,7 @@ export default function Quotes() {
   const handleDelete = async (id) => {
     if (window.confirm('Êtes-vous sûr de vouloir supprimer ce devis ?')) {
       try {
-        await api.delete(`/quotes/${id}/`);
+        await quotesAPI.delete(id);
         showNotification('Devis supprimé avec succès');
         fetchQuotes();
       } catch (error) {
@@ -187,7 +171,7 @@ export default function Quotes() {
   const handlePrint = async (quoteId) => {
     try {
       // On récupère le PDF depuis l'API
-      const response = await api.get(`/quotes/${quoteId}/print/`, {
+      const response = await quotesAPI.print(quoteId, {
         responseType: 'arraybuffer', // important pour recevoir les bytes
       });
 
@@ -230,7 +214,7 @@ export default function Quotes() {
   const handleConvertToOrder = async (quoteId) => {
     if (window.confirm('Voulez-vous convertir ce devis en commande ?')) {
       try {
-        await api.post(`/quotes/${quoteId}/convert_to_order/`);
+        await quotesAPI.convertToOrder(quoteId);
         showNotification('Devis converti en commande avec succès');
         fetchQuotes();
       } catch (error) {
@@ -292,6 +276,12 @@ export default function Quotes() {
       : formData.discount_amount;
     return subtotal - discount;
   };
+
+  useEffect(() => {
+    fetchQuotes();
+    fetchClients();
+    fetchProducts();
+  }, []);
 
   const filteredQuotes = quotes.filter(quote => {
     const matchesSearch = 

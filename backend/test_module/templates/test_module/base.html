@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}ERP Michel De Vélo - Module de Test{% endblock %}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+</head>
+<body class="bg-gray-50">
+    <div x-data="{ openTab: 'dashboard' }" class="min-h-screen">
+        <!-- Header -->
+        <header class="bg-white shadow-sm border-b border-gray-200">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between h-16">
+                    <div class="flex items-center">
+                        <h1 class="text-xl font-bold text-gray-900">🧪 Module de Test ERP</h1>
+                        <span class="ml-2 px-2 py-1 text-xs font-medium bg-red-100 text-red-800 rounded-full">DEV</span>
+                    </div>
+                    <nav class="flex space-x-4">
+                        <button @click="openTab = 'dashboard'" 
+                                :class="openTab === 'dashboard' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:text-gray-900'"
+                                class="px-3 py-2 rounded-md text-sm font-medium">
+                            Tableau de Bord
+                        </button>
+                        <button @click="openTab = 'api'" 
+                                :class="openTab === 'api' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:text-gray-900'"
+                                class="px-3 py-2 rounded-md text-sm font-medium">
+                            Test APIs
+                        </button>
+                        <button @click="openTab = 'database'" 
+                                :class="openTab === 'database' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:text-gray-900'"
+                                class="px-3 py-2 rounded-md text-sm font-medium">
+                            Test Base de Données
+                        </button>
+                        <button @click="openTab = 'wix'" 
+                                :class="openTab === 'wix' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:text-gray-900'"
+                                class="px-3 py-2 rounded-md text-sm font-medium">
+                            Test Wix
+                        </button>
+                        <button @click="openTab = 'auth'" 
+                                :class="openTab === 'auth' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:text-gray-900'"
+                                class="px-3 py-2 rounded-md text-sm font-medium">
+                            Test Auth
+                        </button>
+                        <button @click="openTab = 'frontend'" 
+                                :class="openTab === 'frontend' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:text-gray-900'"
+                                class="px-3 py-2 rounded-md text-sm font-medium">
+                            Test Frontend
+                        </button>
+                        <a href="/test_module/cleanup/" 
+                           class="px-3 py-2 rounded-md text-sm font-medium bg-red-600 text-white hover:bg-red-700">
+                            Nettoyer
+                        </a>
+                    </nav>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+            {% block content %}
+            {% endblock %}
+        </main>
+    </div>
+
+    <script>
+        // Auto-refresh toutes les 30 secondes
+        setInterval(() => {
+            if (window.location.pathname.includes('/test_module/')) {
+                window.location.reload();
+            }
+        }, 30000);
+    </script>
+</body>
+</html>

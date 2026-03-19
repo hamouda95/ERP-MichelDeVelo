@@ -6,7 +6,7 @@ from invoices.serializers import InvoiceSerializer
 
 class OrderItemSerializer(serializers.ModelSerializer):
     product = ProductSerializer(read_only=True)
-    product_id = serializers.IntegerField(write_only=True)
+    product_id = serializers.IntegerField(write_only=True, required=False, allow_null=True)
     
     class Meta:
         model = OrderItem

@@ -1,4 +1,7 @@
 from django.db import models
+from django.conf import settings
+from django.core.validators import RegexValidator
+from django.utils.text import slugify
 
 
 class Supplier(models.Model):
@@ -60,23 +63,36 @@ class Supplier(models.Model):
 
 
 class PurchaseOrder(models.Model):
-    """Bon de commande fournisseur"""
+    """Commandes d'achat"""
     STATUS_CHOICES = [
         ('draft', 'Brouillon'),
-        ('sent', 'Envoyé'),
-        ('confirmed', 'Confirmé'),
-        ('partial', 'Partiellement reçu'),
-        ('received', 'Reçu'),
-        ('cancelled', 'Annulé'),
+        ('sent', 'Envoyée'),
+        ('confirmed', 'Confirmée'),
+        ('partial', 'Partiellement reçue'),
+        ('received', 'Reçue'),
+        ('cancelled', 'Annulée'),
     ]
     
     STORE_CHOICES = [
+        ('central', 'Stock Central'),
         ('ville_avray', 'Ville d\'Avray'),
         ('garches', 'Garches'),
     ]
     
-    # Numéro de commande
-    purchase_order_number = models.CharField(max_length=30, unique=True, editable=False)
+    ORDER_TYPE_CHOICES = [
+        ('central', 'Commande Centrale'),
+        ('local', 'Commande Locale'),
+    ]
+    
+    TRANSFER_STATUS_CHOICES = [
+        ('pending', 'En attente de transfert'),
+        ('partial', 'Transfert partiel'),
+        ('complete', 'Transfert complet'),
+    ]
+    
+    # Informations générales
+    purchase_order_number = models.CharField(max_length=50, unique=True, blank=True)
+    order_type = models.CharField(max_length=10, choices=ORDER_TYPE_CHOICES, default='central')
     
     # Fournisseur
     supplier = models.ForeignKey(Supplier, on_delete=models.PROTECT, related_name='purchase_orders')
@@ -91,6 +107,7 @@ class PurchaseOrder(models.Model):
     
     # Statut
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
+    transfer_status = models.CharField(max_length=10, choices=TRANSFER_STATUS_CHOICES, default='pending')
     
     # Montants
     subtotal_ht = models.DecimalField(max_digits=10, decimal_places=2, default=0)

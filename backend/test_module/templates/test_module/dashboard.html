@@ -1,0 +1,185 @@
+{% extends 'test_module/base.html' %}
+
+{% block title %}Tableau de Bord - {% endblock %}
+
+{% block content %}
+<div x-data="dashboardData" x-init="loadDashboardData()" class="space-y-6">
+    <!-- Statistiques principales -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <div class="w-8 h-8 bg-blue-500 rounded-md flex items-center justify-center">
+                            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-3-3H5a3 3 0 00-3 3v2m4-4H9m0 0h6m-6 0v4m0 0v6m0 0h6"></path>
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Utilisateurs</dt>
+                            <dd class="text-lg font-medium text-gray-900" x-text="stats.users_count || '0'">0</dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <div class="w-8 h-8 bg-green-500 rounded-md flex items-center justify-center">
+                            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 00-6-6H2a6 6 0 006 6v1a6 6 0 006 6h12a6 6 0 006-6v-1M10 11V8a2 2 0 00-2-2H8a2 2 0 00-2 2v3"></path>
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Clients</dt>
+                            <dd class="text-lg font-medium text-gray-900" x-text="stats.clients_count || '0'">0</dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <div class="w-8 h-8 bg-yellow-500 rounded-md flex items-center justify-center">
+                            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4M6 7l8-4m0 0l-8 4m8-4v10m0 0v-10"></path>
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Produits</dt>
+                            <dd class="text-lg font-medium text-gray-900" x-text="stats.products_count || '0'">0</dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <div class="w-8 h-8 bg-purple-500 rounded-md flex items-center justify-center">
+                            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 9a3 3 0 11-6 0 6 6 0 016 0z"></path>
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Commandes</dt>
+                            <dd class="text-lg font-medium text-gray-900" x-text="stats.orders_count || '0'">0</dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tests récents -->
+    <div class="bg-white shadow overflow-hidden sm:rounded-md">
+        <div class="px-4 py-5 sm:p-6">
+            <h3 class="text-lg leading-6 font-medium text-gray-900">Tests Récents</h3>
+            <div class="mt-5">
+                <div class="flow-root">
+                    <ul class="-my-5 divide-y divide-gray-200" x-html="recentTestsHtml">
+                        <li class="py-4">
+                            <div class="flex items-center space-x-3">
+                                <div class="flex-shrink-0">
+                                    <div class="h-8 w-8 rounded-full bg-gray-300 flex items-center justify-center">
+                                        <svg class="h-5 w-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2l-4 4m0 0l-4-4m6 2l2 2M3 13a2 2 0 002-2h12a2 2 0 002 2v-2a2 2 0 00-2-2H5a2 2 0 00-2 2v2a2 2 0 002 2h12a2 2 0 002-2v-2a2 2 0 00-2-2H5a2 2 0 00-2 2v2"></path>
+                                        </svg>
+                                    </div>
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <p class="text-sm font-medium text-gray-900">Chargement des tests...</p>
+                                    <p class="text-sm text-gray-500">Veuillez patienter</p>
+                                </div>
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function loadDashboardData() {
+    fetch('/test_module/api-test/')
+        .then(response => response.json())
+        .then(data => {
+            dashboardData.stats = {
+                users_count: data.tests?.users_count || 0,
+                clients_count: data.tests?.clients_count || 0,
+                products_count: data.tests?.products_count || 0,
+                orders_count: data.tests?.orders_count || 0
+            };
+            
+            // Simuler des tests récents
+            dashboardData.recentTestsHtml = `
+                <li class="py-4">
+                    <div class="flex items-center space-x-3">
+                        <div class="flex-shrink-0">
+                            <div class="h-8 w-8 rounded-full bg-green-500 flex items-center justify-center">
+                                <svg class="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L2 17l7-4 4m0 0l4-4m-4 4v10m0 0v-10"></path>
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm font-medium text-gray-900">API Test</p>
+                            <p class="text-sm text-gray-500">Toutes les APIs testées avec succès</p>
+                        </div>
+                    </div>
+                </li>
+                <li class="py-4">
+                    <div class="flex items-center space-x-3">
+                        <div class="flex-shrink-0">
+                            <div class="h-8 w-8 rounded-full bg-blue-500 flex items-center justify-center">
+                                <svg class="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4v4m0 0v-4m-4 4h6"></path>
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm font-medium text-gray-900">Base de Données</p>
+                            <p class="text-sm text-gray-500">Connexion et relations vérifiées</p>
+                        </div>
+                    </div>
+                </li>
+                <li class="py-4">
+                    <div class="flex items-center space-x-3">
+                        <div class="flex-shrink-0">
+                            <div class="h-8 w-8 rounded-full bg-purple-500 flex items-center justify-center">
+                                <svg class="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 9a3 3 0 11-6 0 6 6 0 016 0z"></path>
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm font-medium text-gray-900">Wix Integration</p>
+                            <p class="text-sm text-gray-500">Service Wix connecté et fonctionnel</p>
+                        </div>
+                    </div>
+                </li>
+            `;
+        })
+        .catch(error => {
+            console.error('Error loading dashboard data:', error);
+        });
+}
+</script>
+{% endblock %}

@@ -53,27 +53,54 @@ class OrderViewSet(viewsets.ModelViewSet):
                 total_tva = 0
                 
                 for item_data in items_data:
-                    product = Product.objects.get(id=item_data['product'])
-                    
-                    # Créer l'item
-                    order_item = OrderItem.objects.create(
-                        order=order,
-                        product=product,
-                        quantity=item_data['quantity'],
-                        unit_price_ht=float(item_data['unit_price_ht']),
-                        unit_price_ttc=float(item_data['unit_price_ttc']),
-                        tva_rate=float(item_data['tva_rate']),
-                    )
-                    
-                    subtotal_ht += float(order_item.subtotal_ht)
-                    total_tva += (float(order_item.subtotal_ttc) - float(order_item.subtotal_ht))
-                    
-                    # Déduire du stock
-                    if order.store == 'ville_avray':
-                        product.stock_ville_avray -= item_data['quantity']
+                    # Gérer les réparations (sans produit) et les produits (avec produit)
+                    if 'product' in item_data and item_data['product']:
+                        # Item avec produit
+                        product = Product.objects.get(id=item_data['product'])
+                        
+                        # Créer l'item
+                        order_item = OrderItem.objects.create(
+                            order=order,
+                            product=product,
+                            quantity=item_data['quantity'],
+                            unit_price_ht=float(item_data.get('unit_price_ht', item_data['unit_price'])),
+                            unit_price_ttc=float(item_data.get('unit_price_ttc', item_data['unit_price'])),
+                            tva_rate=float(item_data.get('tva_rate', 20.0)),
+                            description=item_data.get('description', f"{product.name} x {item_data['quantity']}")
+                        )
+                        
+                        subtotal_ht += float(order_item.subtotal_ht)
+                        total_tva += (float(order_item.subtotal_ttc) - float(order_item.subtotal_ht))
+                        
+                        # Déduire du stock
+                        if order.store == 'ville_avray':
+                            product.stock_ville_avray -= item_data['quantity']
+                        else:
+                            product.stock_garches -= item_data['quantity']
+                        product.save()
                     else:
-                        product.stock_garches -= item_data['quantity']
-                    product.save()
+                        # Item de réparation (sans produit)
+                        unit_price = float(item_data['unit_price'])
+                        # TVA par défaut pour services de réparation (20%)
+                        tva_rate = 20.0
+                        
+                        # Créer l'item de commande sans produit réel
+                        order_item = OrderItem.objects.create(
+                            order=order,
+                            product=None,  # Pas de produit pour les réparations
+                            quantity=item_data['quantity'],
+                            unit_price_ht=unit_price,
+                            unit_price_ttc=unit_price * (1 + tva_rate/100),
+                            tva_rate=tva_rate,
+                            description=item_data.get('description', 'Service de réparation')
+                        )
+                        
+                        # Calculer les totaux pour cet item
+                        item_subtotal_ht = unit_price * item_data['quantity']
+                        item_subtotal_ttc = unit_price * (1 + tva_rate/100) * item_data['quantity']
+                        
+                        subtotal_ht += item_subtotal_ht
+                        total_tva += (item_subtotal_ttc - item_subtotal_ht)
                 
                 # Mettre à jour les totaux de la commande
                 order.subtotal_ht = subtotal_ht

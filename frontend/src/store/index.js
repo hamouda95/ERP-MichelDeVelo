@@ -76,7 +76,7 @@ export const useCartStore = create((set, get) => ({
 }));
 
 // Products Store
-export const useProductsStore = create((set) => ({
+export const useProductsStore = create((set, get) => ({
   products: [],
   viewMode: 'grid',
   searchQuery: '',
@@ -88,11 +88,11 @@ export const useProductsStore = create((set) => ({
   setSelectedCategory: (category) => set({ selectedCategory: category }),
   
   getFilteredProducts: () => {
-    const { products, searchQuery, selectedCategory } = set.getState();
+    const { products, searchQuery, selectedCategory } = get();
     return products.filter((product) => {
       const matchesSearch =
-        product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        product.reference.toLowerCase().includes(searchQuery.toLowerCase());
+        (product.name && product.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (product.reference && product.reference.toLowerCase().includes(searchQuery.toLowerCase()));
       const matchesCategory =
         !selectedCategory || product.category?.id === selectedCategory;
       return matchesSearch && matchesCategory && product.is_visible;

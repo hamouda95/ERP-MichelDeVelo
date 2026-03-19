@@ -3,8 +3,12 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db import transaction
 from django_filters.rest_framework import DjangoFilterBackend
+from django.utils import timezone
+from django.core.files.uploadedfile import InMemoryUploadedFile
 from .models import Supplier, PurchaseOrder, PurchaseOrderItem
 from .serializers import SupplierSerializer, PurchaseOrderSerializer, PurchaseOrderItemSerializer
+from .services import PurchaseOrderService
+from .utils import DocumentParser, StockChecker, PurchaseOrderValidator
 from products.models import Product
 
 
@@ -48,7 +52,7 @@ class SupplierViewSet(viewsets.ModelViewSet):
 
 
 class PurchaseOrderViewSet(viewsets.ModelViewSet):
-    queryset = PurchaseOrder.objects.all()
+    queryset = PurchaseOrder.objects.select_related('supplier').prefetch_related('items').all()
     serializer_class = PurchaseOrderSerializer
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['status', 'store', 'supplier']
@@ -266,6 +270,167 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
         
         serializer = self.get_serializer(purchase_order)
         return Response(serializer.data)
+
+    @action(detail=True, methods=['post'])
+    def send_to_supplier(self, request, pk=None):
+        """Envoyer la commande au fournisseur"""
+        try:
+            order = self.get_object()
+            updated_order = PurchaseOrderService.send_order_to_supplier(order.id)
+            serializer = self.get_serializer(updated_order)
+            return Response(serializer.data)
+        except Exception as e:
+            return Response(
+                {'error': str(e)}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+    
+    @action(detail=True, methods=['post'])
+    def receive_items(self, request, pk=None):
+        """Réceptionner les articles de la commande"""
+        try:
+            order = self.get_object()
+            received_items_data = request.data.get('items', [])
+            
+            updated_order = PurchaseOrderService.receive_purchase_items(
+                order.id, 
+                received_items_data,
+                user=request.user
+            )
+            serializer = self.get_serializer(updated_order)
+            return Response(serializer.data)
+        except Exception as e:
+            return Response(
+                {'error': str(e)}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+    
+    @action(detail=False, methods=['get'])
+    def statistics(self, request):
+        """Statistiques globales des achats"""
+        try:
+            supplier_id = request.query_params.get('supplier_id')
+            store = request.query_params.get('store')
+            
+            stats = PurchaseOrderService.get_purchase_statistics(
+                supplier_id=supplier_id,
+                store=store
+            )
+            
+            return Response(stats)
+            
+        except Exception as e:
+            return Response(
+                {'error': str(e)}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+    @action(detail=False, methods=['post'])
+    def parse_document(self, request):
+        """Parser un document (Excel/CSV) pour import de commande"""
+        try:
+            file = request.FILES.get('document')
+            document_type = request.data.get('document_type', 'delivery_note')
+            
+            if not file:
+                return Response(
+                    {'error': 'Aucun fichier fourni'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Parser selon le type de fichier
+            if file.name.endswith('.xlsx') or file.name.endswith('.xls'):
+                items = DocumentParser.parse_excel(file)
+            elif file.name.endswith('.csv'):
+                items = DocumentParser.parse_csv(file)
+            else:
+                return Response(
+                    {'error': 'Format de fichier non supporté. Utilisez Excel (.xlsx, .xls) ou CSV (.csv)'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Enrichir avec les produits existants
+            products_dict = {p.reference.lower(): p for p in Product.objects.all()}
+            enriched_items = []
+            
+            for item in items:
+                product = None
+                
+                # Chercher par référence
+                if item.get('reference'):
+                    product = products_dict.get(item['reference'].lower())
+                
+                # Chercher par nom si pas trouvé par référence
+                if not product and item.get('product_name'):
+                    for p in Product.objects.all():
+                        if item['product_name'].lower() in p.name.lower():
+                            product = p
+                            break
+                
+                enriched_item = {
+                    'product_id': product.id if product else None,
+                    'product_name': item['product_name'],
+                    'product_reference': item['reference'],
+                    'quantity': item['quantity'],
+                    'unit_price': item['unit_price'],
+                    'total_price': item['quantity'] * item['unit_price'],
+                    'matched_product': product is not None,
+                }
+                enriched_items.append(enriched_item)
+            
+            return Response({
+                'items': enriched_items,
+                'total_items': len(enriched_items),
+                'matched_products': len([i for i in enriched_items if i['matched_product']]),
+                'document_type': document_type,
+            })
+            
+        except Exception as e:
+            return Response(
+                {'error': f'Erreur lors du parsing: {str(e)}'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+    
+    @action(detail=False, methods=['get'])
+    def stock_check(self, request):
+        """Vérifier les niveaux de stock et générer des alertes"""
+        try:
+            store = request.query_params.get('store')
+            
+            # Récupérer tous les produits actifs
+            products = Product.objects.filter(is_active=True)
+            
+            # Générer le rapport de stock
+            report = StockChecker.generate_stock_report(products, store)
+            
+            return Response(report)
+            
+        except Exception as e:
+            return Response(
+                {'error': str(e)}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+    
+    @action(detail=False, methods=['post'])
+    def validate_order(self, request):
+        """Valider une commande d'achat avant création"""
+        try:
+            order_data = request.data
+            
+            # Récupérer les produits et fournisseurs
+            products_dict = {str(p.id): p for p in Product.objects.all()}
+            suppliers_dict = {str(s.id): s for s in Supplier.objects.all()}
+            
+            # Valider la commande
+            validation = PurchaseOrderValidator.validate_order(order_data, products_dict, suppliers_dict)
+            
+            return Response(validation)
+            
+        except Exception as e:
+            return Response(
+                {'error': str(e), 'is_valid': False}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
 
 class PurchaseOrderItemViewSet(viewsets.ModelViewSet):
