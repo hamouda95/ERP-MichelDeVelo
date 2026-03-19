@@ -891,6 +891,9 @@ class RepairViewSet(viewsets.ModelViewSet):
         """Données pour le tableau Kanban des réparations - CORRIGÉ pour cohérence avec models.py"""
         from django.db.models import Count, Q
         
+        # Debug: Log that endpoint is being called
+        print("Kanban endpoint called - DEBUG")
+        
         # Définir les colonnes Kanban - ALIGNÉES avec les vrais statuts du modèle
         kanban_columns = {
             'pending': {

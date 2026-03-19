@@ -27,6 +27,7 @@
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
+    "build:prod": "REACT_APP_API_URL=https://erp-micheldevelo.onrender.com/api npm run build",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },
