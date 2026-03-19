@@ -28,7 +28,7 @@ const api = axios.create({
   timeout: 30000, // 30 second timeout
 });
 
-// Enhanced request interceptor with better token handling
+// Enhanced request interceptor with better token handling and security
 api.interceptors.request.use(
   (config) => {
     // Try multiple token storage methods for compatibility
@@ -41,7 +41,9 @@ api.interceptors.request.use(
       try {
         token = JSON.parse(authStorage)?.state?.token;
       } catch (e) {
-        console.warn('Invalid auth-storage format');
+        // Remove invalid auth storage
+        localStorage.removeItem('auth-storage');
+        console.warn('Invalid auth-storage format, removed');
       }
     }
     
@@ -53,10 +55,22 @@ api.interceptors.request.use(
       config.headers.Authorization = `Bearer ${token}`;
     }
     
+    // Security headers
+    config.headers['X-Requested-With'] = 'XMLHttpRequest';
+    config.headers['Cache-Control'] = 'no-cache';
+    
     return config;
   },
   (error) => {
-    console.error('Request interceptor error:', error);
+    // Remove sensitive data from error logging
+    const safeError = {
+      message: error.message,
+      config: error.config ? {
+        method: error.config.method,
+        url: error.config.url?.replace(/\/api\/[^\/]+\/\d+/, '/api/***/**') // Hide IDs
+      } : undefined
+    };
+    console.error('Request interceptor error:', safeError);
     return Promise.reject(error);
   }
 );
@@ -69,38 +83,36 @@ api.interceptors.response.use(
       // Clear all auth storage methods
       localStorage.removeItem('auth-storage');
       localStorage.removeItem('token');
-      
-      // Try to call logout if available
-      try {
-        const authStorage = localStorage.getItem('auth-storage');
-        if (authStorage) {
-          const auth = JSON.parse(authStorage);
-          if (auth.state?.logout) {
-            auth.state.logout();
-          }
-        }
-      } catch (e) {
-        console.warn('Logout call failed:', e);
-      }
-      
-      // Redirect to login
-      if (window.location.pathname !== '/login') {
-        window.location.href = '/login';
-      }
+      window.location.href = '/login';
+      return Promise.reject(error);
     }
+    
+    // Sanitize error logging in production
+    const isProduction = process.env.NODE_ENV === 'production';
     
     // Log detailed error information
     if (error.response) {
-      console.error('API Error:', {
+      const errorData = isProduction ? {
+        status: error.response.status,
+        url: error.config?.url?.replace(/\/api\/[^\/]+\/\d+/, '/api/***/**'),
+        method: error.config?.method
+      } : {
         status: error.response.status,
         data: error.response.data,
         url: error.config?.url,
         method: error.config?.method
-      });
+      };
+      console.error('API Error:', errorData);
     } else if (error.request) {
-      console.error('Network Error:', error.request);
+      console.error('Network Error:', {
+        message: 'Request failed but no response received',
+        url: error.config?.url?.replace(/\/api\/[^\/]+\/\d+/, '/api/***/**')
+      });
     } else {
-      console.error('Error:', error.message);
+      console.error('Error:', {
+        message: error.message,
+        stack: isProduction ? undefined : error.stack
+      });
     }
     
     return Promise.reject(error);
