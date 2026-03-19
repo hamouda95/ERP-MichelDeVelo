@@ -20,7 +20,8 @@ import {
   repairsAPI, 
   quotesAPI,
   financeAPI,
-  appointmentsAPI 
+  appointmentsAPI,
+  suppliersAPI
 } from '../services/api';
 
 export default function Dashboard() {
