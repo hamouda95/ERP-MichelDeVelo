@@ -15,9 +15,9 @@ urlpatterns = [
     path('me/', auth_views.current_user_info, name='current_user_info'),
     
     # User management
-    path('register/', views.register, name='register'),
-    path('users/', views.UserList.as_view(), name='user-list'),
-    path('users/<int:pk>/', views.UserDetail.as_view(), name='user-detail'),
+    path('register/', views.RegisterView.as_view(), name='register'),
+    path('users/', views.UserListView.as_view(), name='user-list'),
+    path('users/<int:pk>/', views.UserDetailView.as_view(), name='user-detail'),
     path('users/<int:pk>/permissions/', views.update_user_permissions, name='update-user-permissions'),
     
     # Profile management

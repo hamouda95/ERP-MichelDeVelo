@@ -27,8 +27,8 @@ urlpatterns = [
     path('api/finance/', include('finance.urls')),
     path('api/settings/', include('settings_app.urls')),
     
-    # Social Auth
-    path('api/social-auth/', include('social_django.urls', namespace='social')),
+    # Social Auth - Désactivé
+    # path('api/social-auth/', include('social_django.urls', namespace='social')),
 ]
 
 if settings.DEBUG:

@@ -13,6 +13,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters
 from utils.permissions import require_permission, get_user_permissions
 from .serializers import UserSerializer, RegisterSerializer, PasswordResetRequestSerializer, PasswordResetConfirmSerializer
+from django.core.files.storage import default_storage
 
 User = get_user_model()
 
@@ -191,3 +192,82 @@ def update_user_permissions(request, user_id):
             {'error': 'Utilisateur non trouvé'},
             status=status.HTTP_404_NOT_FOUND
         )
+
+
+@api_view(['PATCH'])
+@permission_classes([IsAuthenticated])
+def update_profile(request):
+    """Mettre à jour le profil de l'utilisateur connecté"""
+    serializer = UserSerializer(request.user, data=request.data, partial=True)
+    if serializer.is_valid():
+        serializer.save()
+        return Response(serializer.data)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def upload_avatar(request):
+    """Uploader l'avatar de l'utilisateur"""
+    if 'avatar' not in request.FILES:
+        return Response(
+            {'error': 'Aucun fichier avatar fourni'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    avatar = request.FILES['avatar']
+    user = request.user
+    
+    # Supprimer l'ancien avatar s'il existe
+    if user.avatar:
+        if default_storage.exists(user.avatar.name):
+            default_storage.delete(user.avatar.name)
+    
+    # Sauvegarder le nouvel avatar
+    user.avatar = avatar
+    user.save()
+    
+    return Response({
+        'message': 'Avatar uploadé avec succès',
+        'avatar': user.avatar.url if user.avatar else None
+    })
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def request_password_reset(request):
+    """Demander une réinitialisation de mot de passe"""
+    return password_reset_request(request)
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def confirm_password_reset(request):
+    """Confirmer la réinitialisation de mot de passe"""
+    return password_reset_confirm(request)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def change_password(request):
+    """Changer le mot de passe de l'utilisateur connecté"""
+    user = request.user
+    old_password = request.data.get('old_password')
+    new_password = request.data.get('new_password')
+    
+    if not old_password or not new_password:
+        return Response(
+            {'error': 'Ancien et nouveau mot de passe requis'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    if not user.check_password(old_password):
+        return Response(
+            {'error': 'Ancien mot de passe incorrect'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    user.set_password(new_password)
+    user.save()
+    
+    return Response({'message': 'Mot de passe changé avec succès'})

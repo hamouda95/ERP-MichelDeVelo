@@ -1,7 +1,6 @@
 import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
-import { GoogleOAuthProvider } from '@react-oauth/google';
 import { useAuthStore } from './store';
 
 // Critical components - loaded immediately
@@ -38,23 +37,10 @@ function PrivateRoute({ children }) {
 }
 
 function App() {
-  // Vérifier si Google OAuth est configuré
-  const isGoogleOAuthConfigured = process.env.REACT_APP_GOOGLE_CLIENT_ID && process.env.REACT_APP_GOOGLE_CLIENT_ID !== 'YOUR_GOOGLE_CLIENT_ID';
-
   return (
-    <>
-      {isGoogleOAuthConfigured ? (
-        <GoogleOAuthProvider clientId={process.env.REACT_APP_GOOGLE_CLIENT_ID}>
-          <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-            <AppContent />
-          </Router>
-        </GoogleOAuthProvider>
-      ) : (
-        <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-          <AppContent />
-        </Router>
-      )}
-    </>
+    <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <AppContent />
+    </Router>
   );
 }
 
